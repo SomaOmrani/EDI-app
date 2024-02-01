@@ -94,3 +94,21 @@ umap-learn==0.5.5
 urllib3==2.1.0
 wcwidth==0.2.12
 yarl==1.9.4
+
+
+
+pyngrok
+bertopic
+accelerate 
+bitsandbytes  
+adjustText
+bitsandbytes 
+accelerate
+transformers
+sentence_transformers
+# !pip install umap ## do not install this
+umap-learn
+hdbscan
+
+!pip install -q  einops  langchain
+!pip install sentencepiece
