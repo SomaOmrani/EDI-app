@@ -97,18 +97,14 @@ yarl==1.9.4
 
 
 
-pyngrok
-bertopic
-accelerate 
-bitsandbytes  
-adjustText
-bitsandbytes 
-accelerate
-transformers
-sentence_transformers
-# !pip install umap ## do not install this
-umap-learn
-hdbscan
-
-!pip install -q  einops  langchain
-!pip install sentencepiece
+pyngrok==7.0.5
+bertopic==0.16.0
+accelerate==0.26.1
+bitsandbytes==0.42.0
+transformers==4.35.2
+sentence_transformers==2.3.1
+umap-learn==0.5.5
+hdbscan==0.8.33
+einops==0.7.0
+langchain==0.1.4
+sentencepiece==0.1.99
