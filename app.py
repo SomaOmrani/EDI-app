@@ -4926,7 +4926,7 @@ elif page == "Topic Modeling & Text Summarization":
         bnb_4bit_quant_type='nf4',  # Normalized float 4
         bnb_4bit_use_double_quant=True,  # Second quantization after the first
         bnb_4bit_compute_dtype=torch.bfloat16,  # Computation type
-        load_in_8bit_fp32_cpu_offload=True  # Enable offloading to CPU
+        # load_in_8bit_fp32_cpu_offload=True  # Enable offloading to CPU
         )
         #---------------------------------------------------------------------------------
         # Llama 2 Tokenizer
