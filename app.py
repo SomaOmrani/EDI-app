@@ -265,7 +265,7 @@ if page == "Data Preprocessing":
                     question,
                     options=[""] + standard_questions,  # Add blank option
                     index=0,  # Default to blank option
-                    format_func=lambda x: x[:50] if x else "Select...",
+                    format_func=lambda x: x if x else "Select...",
                     key=question  # Use question as the unique key
                 )
 
@@ -2796,7 +2796,7 @@ elif page == "Text Analysis":
         questions = {
             "Recruiting Diverse Employees": "What ONE thing do you think the business should be doing to recruit a diverse range of employees?",
             "Creating a Diverse Workplace": "What ONE thing do you think the business does well in terms of creating a diverse and inclusive workplace?",
-            "Respectful Work Environment": "What ONE thing do you think the business should be doing to create a work environment where everyone is respected and can thrive regardless of personal circumstances or background?",
+            "Respectful Work Environment": "What things do you think the organisation should be doing to create a work environment where everyone is respected and can thrive regardless of personal circumstances or background?': 'What ONE thing do you think the business should be doing to create a work environment where everyone is respected and can thrive regardless of personal circumstances or background?",
             "Comments on D&I": "What other comments would you like to make in relation to D&I at this organisation?"
         }
         # User selects a question
