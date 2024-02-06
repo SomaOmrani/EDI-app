@@ -58,6 +58,9 @@ if page == "Questions":
             df = pd.read_excel(uploaded_file)
         # Replacing 'Artex'/'artex' in column names
         df.columns = [col.replace('Artex', 'this organization').replace('artex', 'this organization') for col in df.columns]
+        # Additional transformations as per your notebook
+        df.applymap(lambda x: x.replace('Artex', 'this organisation') if isinstance(x, str) else x)
+        df.applymap(lambda x: x.replace('artex', 'this organisation') if isinstance(x, str) else x)
 
         # Save the processed DataFrame to the session state
         # st.session_state['df'] = df
