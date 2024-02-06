@@ -299,8 +299,13 @@ if page == "Data Preprocessing":
 
         if 'df' in st.session_state:
             df = st.session_state['df']
-            # For simplicity, let's assume that columns with less than 20 unique values can be treated as categorical
-            categorical_columns = [col for col in df.columns if df[col].nunique() < 20]
+            # # For simplicity, let's assume that columns with less than 20 unique values can be treated as categorical
+            # categorical_columns = [col for col in df.columns if df[col].nunique() < 20]
+            # if the string length for categorical columns is short, you could use:
+            categorical_columns = [
+            col for col in df.columns if df[col].nunique() < 20 
+            and (df[col].dtype != 'O' or df[col].map(lambda x: len(str(x)) < 50).all())
+            ]
 
             # Converting these columns to 'category' data type
             for col in categorical_columns:
