@@ -36,11 +36,11 @@ if 'df' not in st.session_state:
     st.session_state['df'] = None
 
 # Sidebar for navigation
-page = st.sidebar.selectbox("Choose a page", ["Data Preprocessing", "Demographic Analysis", "Social Mobility Analysis", "Inclusion Analysis", "Text Analysis"])
+page = st.sidebar.selectbox("Choose a page", ["Questions", "Demographic Analysis", "Social Mobility Analysis", "Inclusion Analysis", "Text Analysis"])
 
 
-if page == "Data Preprocessing":
-    st.header("Data Preprocessing")
+if page == "Questions":
+    st.header("Questions")
     # File Upload
     # uploaded_file = st.sidebar.file_uploader("Choose a CSV file", type="csv")
     # if uploaded_file is not None:
