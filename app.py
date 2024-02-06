@@ -2931,7 +2931,7 @@ elif page == "Text Analysis":
         ##########################################################################################
         #                                 Text Summarization                                     #
         ##########################################################################################
-        model = "meta-llama/Llama-2-7b-chat-hf"
+        model = "meta-llama/Llama-2-13b-chat-hf"
 
         tokenizer = AutoTokenizer.from_pretrained(model)
 
