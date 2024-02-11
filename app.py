@@ -439,6 +439,12 @@ if page == "Questions":
 
         if 'df' in st.session_state:
             df = st.session_state['df']
+
+            # Filling missing values as per the specified instructions
+            if 'What other comments would you like to make in relation to D&I at this organisation?' in df.columns:
+                df['What other comments would you like to make in relation to D&I at this organisation?'].fillna('No response', inplace=True)
+
+            
             # For simplicity, let's assume that columns with less than 20 unique values can be treated as categorical
             categorical_columns = [col for col in df.columns if df[col].nunique() < 20]#####################################################source of error for  q32
 
@@ -522,8 +528,8 @@ if page == "Questions":
                 #df['Main_Earner_Occupation_At_14'] = df['Main_Earner_Occupation_At_14'].map(mapping_dict1)
 
             # Filling missing values as per the specified instructions
-            if 'What other comments would you like to make in relation to D&I at this organisation?' in df.columns:
-                df['What other comments would you like to make in relation to D&I at this organisation?'].fillna('No response', inplace=True)
+            # if 'What other comments would you like to make in relation to D&I at this organisation?' in df.columns:
+            #     df['What other comments would you like to make in relation to D&I at this organisation?'].fillna('No response', inplace=True)
 
             # # For simplicity, let's assume that columns with less than 20 unique values can be treated as categorical
             # categorical_columns = [col for col in df.columns if df[col].nunique() < 20]
