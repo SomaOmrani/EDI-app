@@ -3200,7 +3200,7 @@ elif page == "Text Analysis":
             st.markdown(f"**Topic: {topic}**")
             st.markdown("Examples:")
             st.write(representative_docs)
-            st.markdown("Key Insights in this cluster:")
+            st.markdown("#### Key Insights in this cluster:")
 
             # Use regex to find bullet points
             bullet_points = re.split(r'\n*[-*]\s|\n*\d+\.\s|\n+', summary)
