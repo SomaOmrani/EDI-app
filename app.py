@@ -37,7 +37,7 @@ import base64
 ##########################################################################################
 #                                 Text Summarization                                     #
 ##########################################################################################
-model = "meta-llama/Llama-2-7b-chat-hf"
+model = "meta-llama/Llama-2-13b-chat-hf"
 
 torch.cuda.empty_cache()
 
@@ -3390,7 +3390,7 @@ elif page == "Text Analysis":
           ##########################################################################################
           #                                 Text Summarization                                     #
           ##########################################################################################
-          model = "meta-llama/Llama-2-7b-chat-hf"
+          model = "meta-llama/Llama-2-13b-chat-hf"
 
           torch.cuda.empty_cache()
 
