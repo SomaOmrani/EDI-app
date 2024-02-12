@@ -1448,7 +1448,7 @@ elif page == "Demographic Analysis":
                     display_summary(st.session_state['difficulty_analysis_results']['Difficulty_Comment'])
                 #--------------------------------------------------------------------------------------------------------------------------------------------------
                 
-                if 'Elaborate on 'Elaborate on how your difficulty affects you at work?'?' in df.columns:
+                if 'Elaborate on how your difficulty affects you at work?' in df.columns:
 
                   # Initialize a list in session state for storing analysis results if it doesn't exist
                   if 'difficulty_affect_analysis_results' not in st.session_state:
