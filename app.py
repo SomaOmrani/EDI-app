@@ -28,7 +28,12 @@ from langchain import PromptTemplate,  LLMChain
 #----------------------------------------------
 import base64
 #----------------------------------------------
+from presidio_analyzer import AnalyzerEngine
+from presidio_anonymizer import AnonymizerEngine
+from presidio_anonymizer.entities import OperatorConfig
 
+import spacy 
+#---------------------------------------------------------
 
 #################################################################################
 #################################################################################
@@ -37,7 +42,7 @@ import base64
 ##########################################################################################
 #                                 Text Summarization                                     #
 ##########################################################################################
-model = "meta-llama/Llama-2-13b-chat-hf"
+model = "meta-llama/Llama-2-7b-chat-hf"
 
 torch.cuda.empty_cache()
 
@@ -89,6 +94,13 @@ def display_summary(summary_text):
         # Check if bullet_point is not empty to avoid printing empty lines
         if bullet_point.strip():
             st.markdown(f"- {bullet_point.strip()}")
+
+# Function to convert a DataFrame to a CSV download link
+    def convert_df_to_csv_download_link(df, filename):
+        csv = df.to_csv(index=False)
+        b64 = base64.b64encode(csv.encode()).decode()
+        href = f'<a href="data:file/csv;base64,{b64}" download="{filename}" target="_blank">Download {filename}</a>'
+        return href
 ##################################################################################
 ##################################################################################
 ##################################################################################
@@ -108,13 +120,278 @@ if 'df' not in st.session_state:
 page = st.sidebar.selectbox("Choose a page", ["Questions", "Demographic Analysis", "Social Mobility Analysis", "Inclusion Analysis", "Text Analysis"])
 
 
+# Initialize the Presidio Analyzer and Anonymizer engines
+analyzer = AnalyzerEngine()
+anonymizer = AnonymizerEngine()
+
+def anonymize_text(text):
+    if isinstance(text, str):  # Check if text is a string
+        # Use the analyzer to find personal information in the text
+        analyzer_results = analyzer.analyze(text=text, language='en')
+        
+        # Use the anonymizer to anonymize the text based on the analyzer results
+        anonymized_result = anonymizer.anonymize(
+            text=text,
+            analyzer_results=analyzer_results,
+            operators={"DEFAULT": OperatorConfig("replace", {"new_value": "<ANONYMIZED>"})}
+        )
+        
+        return anonymized_result.text
+    else:
+        return text
+
+
+# Load a pre-trained spaCy model
+nlp = spacy.load("en_core_web_lg")
+
+def replace_named_entities(text, replace_with="[REPLACED]"):
+    if isinstance(text, str):  # Check if text is a string
+        # Process the text with the spaCy model
+        doc = nlp(text)
+        
+        # Replace named entities with the specified placeholder
+        replaced_text = []
+        for token in doc:
+            if token.ent_type_ != "":
+                replaced_text.append(replace_with)
+            else:
+                replaced_text.append(token.text)
+        
+        # Join the tokens back into a string
+        replaced_text = " ".join(replaced_text)
+        
+        return replaced_text
+    else:
+        return text
+
+
+
+
+rename_columns = {'How long have you worked at the organization?': 'Service_Length',
+                'What is your annual salary':'Salary',
+                #   'Which part of the business do you work in?',
+                #   'Which function do you work in?',
+                #   'Which grade do you work at?',
+                #   'Which brand do you work in?',
+                'What is your role in the organisation?':'Organisational_Role',
+                'Which department do you work in?': 'Department',
+                'Job Share': 'Job_Share',
+                'Flexibility with start and finish times': 'Flexibility_with_start_and_finish_times',
+                'Working from home': 'Working_from_home',
+                'Flexible Hours Based on Output': 'Flexible_Hours_Based_on_Output',
+                'Remote Working': 'Remote_Working',
+                'Condensed Hours': 'Condensed_Hours',
+                'School Hours': 'School_Hours',
+                'Term Time': 'Term_Time',
+                'None of the above': 'None_of_the_above',##
+                'Prefer not to say': 'PNTS',###
+                'Flexible Working Comments': 'Flexible_Working_Comments',
+                'What is your age?': 'Age',
+                'What generation were you born into?': 'Generation',
+                'What best describes your gender?': 'Gender',
+                'Prefer to self describe your gender': 'Self_Describe_Gender',  
+                'Is your gender identity the same as the sex you were assigned at birth?': 'Gender_Identification_Same_as_Birth',
+                'Do you have a disability or long term health condition?': 'Disability_or_Long_Term_Health_Condition?',
+                'Do you have difficulty seeing, even if wearing glasses?': 'Seeing_Dificulty',
+                'Do you have difficulty hearing, even if using a hearing aid?': 'Hearing_Dificulty',
+                'Do you have difficulty walking or climbing steps?': 'Walking_Dificulty',
+                'Do you have difficulty remembering or concentrating?': 'Remembering_Dificulty',
+                'Do you have difficulty (with self-care such as) washing all over or dressing?': 'SelfCare_Dificulty',
+                'Using your usual language, do you have difficulty communicating?': 'Communicating_Dificulty',
+                'Do you have difficulty raising a 2 litre bottle of water or soda from waist to eye level?': 'Raising_Water/Soda_Bottle_Dificulty',
+                'Do you have difficulty using your hands and fingers?': 'Picking_Up_Small_Objects_Dificulty',
+                'Elaborate on how your difficulty above affect you at work': 'Difficulty_Comment',
+                'Do you consider yourself to be neuro-divergent':'Do you consider yourself to be neuro-divergent?',
+                'Can you elaborate on how your difficulty with certain tasks affects you at work?': 'Elaborate on how your difficulty affects you at work?',
+                'Is your work schedule or work tasks arranged to account for difficulties you have in doing certain activities?': 'Work_Adaptation_for_Difficulties',
+                'Has your workplace been modified to account for difficulties you have in doing certain activities?': 'Workplace_Modification_for_Difficulties',
+                'Would you describe your national identity as English?': 'English',
+                'Would you describe your national identity as Welsh?': 'Welsh',
+                'Would you describe your national identity as Scottish?': 'Scottish',
+                'Would you describe your national identity as Northern Irish?': 'Northern_Irish',
+                'Would you describe your national identity as British?': 'British',
+                'Would you prefer not to say your national identity?': 'Prefer_Not_To_Say',
+                'would you describe your national identity yourself?': 'National_Identity__Not_in_List',
+                'What is your ethnicity?': 'Ethnicity',
+                'Please tell us your ethnicity below if you do not personally identify with any of the options above.': 'Ethnicity_Not_in_List',
+                'What is your first language?':'Language',
+                'What is your sexual orientation?': 'Sexual_Orientation',
+                'Prefer to self describe your sexual orientation': 'Self_Describe_Sexual_Orientation',
+                'Are you open about your sexual orientation "At home"?': 'Sexual_Orientation_Openness_At_Home',
+                'Are you open about your sexual orientation "With your manager"?': 'Sexual_Orientation_Openness_With_Manager',
+                'Are you open about your sexual orientation "With colleagues"?': 'Sexual_Orientation_Openness_With_Colleagues',
+                'Are you open about your sexual orientation "At work generally"?': 'Sexual_Orientation_Openness_At_Work_Generally',
+                'Are you open about your sexual orientation "Prefer not to say"?': 'Sexual_Orientation_Openness_PNTS',
+                'Do you have any dependants or caring responsibilities of "Nobody"?': 'Has_Caring_Responsibility',
+                'Do you have any dependants or caring responsibilities of "a child/children (under 18)"?': 'Dependents_Children_Under_18',
+                'Do you have any dependants or caring responsibilities of "a disabled child/children (under 18)"?': 'Dependents_Disabled_Children_Under_18',
+                'Do you have any dependants or caring responsibilities of "of a disabled adult (18 and over)"?': 'Dependents_Disabled_Adult_18_and_Over',
+                'Do you have any dependants or caring responsibilities of "an older person/people (65 and over)"?': 'Dependents_Older_Person_65_and_Over',
+                'Do you have any dependants or caring responsibilities "Prefer not to say"?': 'Dependents_Prefer_Not_to_Say', ##
+                'What is your religion?': 'Religion',
+                'Please tell us your religion below if you do not personally identify with any of the options above.': 'Religion_Not_in_List',
+                'Are you serving or have you ever served in the Armed Forces': 'Armed_Forces_Service',
+                'How often do you feel worried, nervous or anxious?': 'How_often_feeling_worried_nervous_anxious',
+                'Thinking about the last time you felt worried, nervous or anxious, how would you describe the level of these feelings?':'Level_of_last_worrying_anxiety_nervousness',
+                'How often do you feel depressed?': 'How_often_feeling_depressed',
+                'Thinking about the last time you felt depressed, how depressed did you feel?': 'Level_of_last_depression',
+                'What was the occupation of your main household earner when you were aged about 14?': 'Main_Earner_Occupation_At_14',
+                'Did the main household earner in your house work as an employee or were they self employed when you were aged about 14?': 'Main_Earner_Employee_or_SelfEmployed_At_14',######
+                'Which type of school did you attend for most of the time between the ages of 11 and 16?': 'School_Type_Ages_11_16',
+                'If you finished school after 1980, were you eligible for Free School Meals at any point during your school years?': 'Eligibility_For_Free_School_Meals',
+                'Did either of your parents attend university by the time you were 18?': 'Parents_University_Attendance_By_18',
+                'What is the highest level of qualification achieved by either of your parent(s) by the time you were 18?': 'Parents_Highest_Level_of_Qualification_By_18',######
+                'Compared to people in general in the UK, would you describe yourself as coming from a lower socio-economic background?': 'Lower_Socio_Economic_Background',##########
+                'How much of a priority is EDI in the company to "The senior leadership team"?': 'EDI_Priority_Senior_Leadership',
+                'How much of a priority is EDI in the company to "Your line manager"?': 'EDI_Priority_Line_Manager',
+                'How much of a priority is EDI in the company to "Your peers "?': 'EDI_Priority_Peers',
+                'How much of a priority is EDI in the company to "Yourself "?': 'EDI_Priority_YourSelf',
+                'What advice do you have for the Senior Leadership Team regarding EDI at this company?': 'Advice_for_Senior_Leadership_Team_re_EDI',
+                'I feel like I belong at this organisation': 'I feel like I belong at business',
+                'It feels like I do not belong at the business when something negative happens to me at work': 'I feel that I might not belong at business when something negative happens to me at work',
+                'I can voice a contrary opinion without fear of negative consequences': 'I can voice a contrary opinion without fear of negative consequences',
+                'I often worry I do not have things in common with others at the company': 'I often worry I do not have things in common with others at business',
+                'I feel like my colleagues understand who I really am': 'I feel like my colleagues understand who I really am',
+                'I feel respected and valued by my colleagues at the company': 'I feel respected and valued by my colleagues at business',
+                'I feel respected and valued by my manager': 'I feel respected and valued by my manager',
+                'I feel confident I can develop my career at the company': 'I feel confident I can develop my career at at business',
+                'When I speak up at work, my opinion is valued': 'When I speak up at work, my opinion is valued',
+                'Admin or routine daily tasks that don’t have a specific owner are divided fairly at the company': 'Administrative tasks that don’t have a specific owner, are divided fairly at business',
+                'Promotion decisions are fair at the company': 'Promotion decisions are fair at business',
+                'My job performance is assessed fairly': 'My job performance is evaluated fairly',
+                'The company believes that people can always greatly improve their talents and abilities': 'Business believes that people can always improve their talents and abilities',
+                'The company believes that people have a certain amount of talent, and they can’t do much to change it': 'Business believes that people have a certain amount of talent, and they can’t do much to change it',
+                'Working here is important to the way that I think of myself as a person': 'Working at Business is important to the way that I think of myself as a person',
+                'The information and resources I need to do my job effectively are readily available': 'The information and resources I need to do my job effectively are available',
+                'The company hires people from diverse backgrounds': 'Business hires people from diverse backgrounds',
+                'Would you agree that you are able to reach your full potential at work?': 'Would you agree that you are able to reach your full potential at work?',
+                'Which of the following statements best describes how you feel in your team': 'Which of the following statements best describes how you feel in your team',
+                'Is there anything this organisation can do to recruit a more diverse group of employees?': 'What ONE thing do you think the business should be doing to recruit a diverse range of employees?',
+                'What things do you think the organisation does well in terms of creating a diverse and inclusive workplace?': 'What ONE thing do you think the business does well in terms of creating a diverse and inclusive workplace?',
+                'What things do you think the organisation should be doing to create a work environment where everyone is respected and can thrive regardless of personal circumstances or background?': 'What ONE thing do you think the business should be doing to create a work environment where everyone is respected and can thrive regardless of personal circumstances or background?',
+                'In what ways can this organisation ensure that everyone is treated fairly and can thrive?': 'In what ways can this organisation ensure that everyone is treated fairly and can thrive?', ## Is it the same as above question???
+                'We want to support employees in setting up networks for our people if there is demand. What ERG would you be interested in us establishing?': 'We want to support employees in setting up networks for our people if there is demand. What ERG would you be interested in us establishing?',
+                'How likely is it that you would recommend this company as an inclusive place to work to a friend or colleague?': 'How likely is it that you would recommend this business as an inclusive place to work to a friend or colleague?',
+                'In the next 6 months, are you considering leaving this organisation because you do not feel respected or that you belong?': 'Considering_Leaveing_in_Next_6_Months',
+                'Are there any other areas related to inclusion and diversity where you feel this organisation could do better, that have not been covered here?': 'What other comments would you like to make in relation to D&I at this organisation?'
+
+                }
+
+standard_questions = ['How long have you worked at the organization?',
+                    'What is your annual salary',
+                    'Which department do you work in?',
+                    # 'Which part of the business do you work in?',
+                    # 'Which function do you work in?',
+                    # 'Which grade do you work at?',
+                    # 'Which brand do you work in?',
+                    'What is your role in the organisation?',
+                    'Job Share',
+                    'Flexibility with start and finish times',
+                    'Working from home',
+                    'Flexible Hours Based on Output',
+                    'Remote Working',
+                    'Condensed Hours',
+                    'School Hours',
+                    'Term Time',
+                    'None of the above',
+                    'Prefer not to say',###
+                    'Flexible Working Comments',
+                    'What is your age?',
+                    'What generation were you born into?',
+                    'What best describes your gender?',
+                    'Prefer to self describe your gender',
+                    'Is your gender identity the same as the sex you were assigned at birth?',
+                    'Do you have a disability or long term health condition?',
+                    'Do you have difficulty seeing, even if wearing glasses?',
+                    'Do you have difficulty hearing, even if using a hearing aid?',
+                    'Do you have difficulty walking or climbing steps?',
+                    'Do you have difficulty remembering or concentrating?',
+                    'Do you have difficulty (with self-care such as) washing all over or dressing?',
+                    'Using your usual language, do you have difficulty communicating?',
+                    'Do you have difficulty raising a 2 litre bottle of water or soda from waist to eye level?',
+                    'Do you have difficulty using your hands and fingers?',
+                    'Elaborate on how your difficulty above affect you at work',
+                    'Do you consider yourself to be neuro-divergent',
+                    'Can you elaborate on how your difficulty with certain tasks affects you at work?',
+                    'Is your work schedule or work tasks arranged to account for difficulties you have in doing certain activities?',
+                    'Has your workplace been modified to account for difficulties you have in doing certain activities?',
+                    'Would you describe your national identity as English?',
+                    'Would you describe your national identity as Welsh?',
+                    'Would you describe your national identity as Scottish?',
+                    'Would you describe your national identity as Northern Irish?',
+                    'Would you describe your national identity as British?',
+                    'Would you prefer not to say your national identity?',
+                    'would you describe your national identity yourself?',
+                    'What is your ethnicity?',
+                    'Please tell us your ethnicity below if you do not personally identify with any of the options above.',
+                    'What is your first language?',
+                    'What is your sexual orientation?',
+                    'Prefer to self describe your sexual orientation',
+                    'Are you open about your sexual orientation "At home"?',
+                    'Are you open about your sexual orientation "With your manager"?',
+                    'Are you open about your sexual orientation "With colleagues"?',
+                    'Are you open about your sexual orientation "At work generally"?',
+                    'Are you open about your sexual orientation "Prefer not to say"?',
+                    'Do you have any dependants or caring responsibilities of "Nobody"?',##
+                    'Do you have any dependants or caring responsibilities of "a child/children (under 18)"?',
+                    'Do you have any dependants or caring responsibilities of "a disabled child/children (under 18)"?',
+                    'Do you have any dependants or caring responsibilities of "of a disabled adult (18 and over)"?',
+                    'Do you have any dependants or caring responsibilities of "an older person/people (65 and over)"?',
+                    'Do you have any dependants or caring responsibilities "Prefer not to say"?', ##
+                    'What is your religion?',
+                    'Please tell us your religion below if you do not personally identify with any of the options above.',
+                    'Are you serving or have you ever served in the Armed Forces',
+                    'How often do you feel worried, nervous or anxious?',
+                    'Thinking about the last time you felt worried, nervous or anxious, how would you describe the level of these feelings?',
+                    'How often do you feel depressed?',
+                    'Thinking about the last time you felt depressed, how depressed did you feel?',
+                    'What was the occupation of your main household earner when you were aged about 14?',
+                    'Did the main household earner in your house work as an employee or were they self employed when you were aged about 14?',
+                    'Which type of school did you attend for most of the time between the ages of 11 and 16?',
+                    'If you finished school after 1980, were you eligible for Free School Meals at any point during your school years?',
+                    'Did either of your parents attend university by the time you were 18?',
+                    'What is the highest level of qualification achieved by either of your parent(s) by the time you were 18?',
+                    'Compared to people in general in the UK, would you describe yourself as coming from a lower socio-economic background?',
+                    'How much of a priority is EDI in the company to "The senior leadership team"?',
+                    'How much of a priority is EDI in the company to "Your line manager"?',
+                    'How much of a priority is EDI in the company to "Your peers "?',
+                    'How much of a priority is EDI in the company to "Yourself "?',
+                    'What advice do you have for the Senior Leadership Team regarding EDI at this company?',
+                    'I feel like I belong at this organisation',
+                    'It feels like I do not belong at the business when something negative happens to me at work',
+                    'I can voice a contrary opinion without fear of negative consequences',
+                    'I often worry I do not have things in common with others at the company',
+                    'I feel like my colleagues understand who I really am',
+                    'I feel respected and valued by my colleagues at the company',
+                    'I feel respected and valued by my manager',
+                    'I feel confident I can develop my career at the company',
+                    'When I speak up at work, my opinion is valued',
+                    'Admin or routine daily tasks that don’t have a specific owner are divided fairly at the company',
+                    'Promotion decisions are fair at the company',
+                    'My job performance is assessed fairly',
+                    'The company believes that people can always greatly improve their talents and abilities',
+                    'The company believes that people have a certain amount of talent, and they can’t do much to change it',
+                    'Working here is important to the way that I think of myself as a person',
+                    'The information and resources I need to do my job effectively are readily available',
+                    'The company hires people from diverse backgrounds',
+                    'Would you agree that you are able to reach your full potential at work?',
+                    'Which of the following statements best describes how you feel in your team',
+                    'Is there anything this organisation can do to recruit a more diverse group of employees?',
+                    'What things do you think the organisation does well in terms of creating a diverse and inclusive workplace?',
+                    'What things do you think the organisation should be doing to create a work environment where everyone is respected and can thrive regardless of personal circumstances or background?',
+                    'In what ways can this organisation ensure that everyone is treated fairly and can thrive?', ## Is it the same as above question???
+                    'We want to support employees in setting up networks for our people if there is demand. What ERG would you be interested in us establishing?',
+                    'How likely is it that you would recommend this company as an inclusive place to work to a friend or colleague?',
+                    'In the next 6 months, are you considering leaving this organisation because you do not feel respected or that you belong?',
+                    'Are there any other areas related to inclusion and diversity where you feel this organisation could do better, that have not been covered here?'
+
+                ]
+
+
+
 if page == "Questions":
     st.header("Questions")
-    # File Upload
-    # Check if the DataFrame is already in session state
-    # if st.session_state['df'].empty:
-    #################################### here need to install openpyxl #####################################
-    uploaded_file = st.sidebar.file_uploader("Choose a csv or excel file", type=["csv", "xlsx"])
+    uploaded_file = st.sidebar.file_uploader("Choose a CSV or Excel file", type=["csv", "xlsx"])
 
     if uploaded_file is not None:
         file_extension = uploaded_file.name.split('.')[-1]
@@ -124,535 +401,477 @@ if page == "Questions":
         elif file_extension.lower() == 'xlsx':
             df = pd.read_excel(uploaded_file)
 
-        # Replacing 'Artex'/'artex' in column names
-        df.columns = [col.replace('Artex', 'this organization').replace('artex', 'this organization') for col in df.columns]
-        # Additional transformations as per your notebook
-        df.applymap(lambda x: x.replace('Artex', 'this organisation') if isinstance(x, str) else x)
-        df.applymap(lambda x: x.replace('artex', 'this organisation') if isinstance(x, str) else x)
+        st.session_state['df'] = df  # Save the main DataFrame in session state
 
-        # Initialize an empty list for the new column names
-        new_column_names = []
-        previous_question = None
+    if st.checkbox('Please indicate if this is the first time you\'re uploading this dataset by checking the box below.'):
+        
+        if uploaded_file is None:
+            st.write("Upload a file.")
+        else:
+            if 'df' in st.session_state:  # Check if the main DataFrame is in session state
+                df = st.session_state['df']  # Retrieve the main DataFrame from session state
 
-        # Iterate through each column name in the first row
-        for col in df.columns:
-            if "Unnamed" not in col:
-                new_column_names.append(col)
-                previous_question = col
-                # Assume 'df' is your DataFrame and 'column_name' is the name of the column
-                idx = df.columns.get_loc(previous_question)
+                st.markdown(f"###### This dataset includes {df.shape[0]}" + " rows and " + f"{df.shape[1]}" + " columns")
+                # st.markdown(f"#### Number of Columns: {df.shape[1]}")
 
-            else:
-                # print(new_column_name)
-                sub_question = df.at[0, col]
-                sub_question = str(sub_question).strip()  # Ensure any string is stripped of whitespace
-                if  sub_question != '':
-                    new_column_name = f"{previous_question}: {sub_question}"
-                else:
-                    new_column_name = f"{previous_question}: Subpart"
-                new_column_names.append(new_column_name)
-                new_column_names[idx] = f"{previous_question}: {df.iloc[0, idx]}"
+                # Replacing 'Artex'/'artex' in column names
+                df.columns = [col.replace('Artex', 'this organization').replace('artex', 'this organization') for col in df.columns]
+                # Additional transformations as per your notebook
+                df = df.applymap(lambda x: x.replace('Artex', 'this organisation') if isinstance(x, str) else x)
+                df = df.applymap(lambda x: x.replace('artex', 'this organisation') if isinstance(x, str) else x)
+                # Select string columns
+                string_columns = df.select_dtypes(include=['object']).columns
+                # Apply the anonymization functions to string columns
+                df[string_columns] = df[string_columns].applymap(anonymize_text)
+                df[string_columns] = df[string_columns].applymap(replace_named_entities)
 
-        # Now assign the new column names to the DataFrame
-        df.columns = new_column_names
-        # st.write(df.columns)
+                # df = df.applymap(anonymize_text)
+                # df = df.applymap(replace_named_entities)
 
-        # Drop the first two rows that were used to identify the column names
-        df = df.drop(df.index[0:2]).reset_index(drop=True)
+                # Initialize an empty list for the new column names
+                new_column_names = []
+                previous_question = None
 
-        st.session_state['df'] = df
+                # Iterate through each column name in the first row
+                for col in df.columns:
+                    if "Unnamed" not in col:
+                        new_column_names.append(col)
+                        previous_question = col
+                        # Assume 'df' is your DataFrame and 'column_name' is the name of the column
+                        idx = df.columns.get_loc(previous_question)
+
+                    else:
+                        # print(new_column_name)
+                        sub_question = df.at[0, col]
+                        sub_question = str(sub_question).strip()  # Ensure any string is stripped of whitespace
+                        if  sub_question != '':
+                            new_column_name = f"{previous_question}: {sub_question}"
+                        else:
+                            new_column_name = f"{previous_question}: Subpart"
+                        new_column_names.append(new_column_name)
+                        new_column_names[idx] = f"{previous_question}: {df.iloc[0, idx]}"
+
+                # Now assign the new column names to the DataFrame
+                df.columns = new_column_names
+                # st.write(df.columns)
+
+                # Drop the first two rows that were used to identify the column names
+                df = df.drop(df.index[0:2]).reset_index(drop=True)
+
+                st.session_state['df'] = df
 
 
-    # Save the processed DataFrame to the session state
-    # st.session_state['df'] = df
-    # Display basic information about the data########################## show her or after preprocessing?
-    # st.write("Data Overview:")
-    # st.write(f"Number of Rows: {df.shape[0]}")
-    # st.write(f"Number of Columns: {df.shape[1]}")
-    # st.text("A brief explanation about the dataset...")  # You can change this later
-
-
-
-
-
-
-        rename_columns = {'How long have you worked at the organization?': 'Service_Length',
-                            'What is your annual salary':'Salary',
-                            #   'Which part of the business do you work in?',
-                            #   'Which function do you work in?',
-                            #   'Which grade do you work at?',
-                            #   'Which brand do you work in?',
-                            'Which department do you work in?': 'Department',
-                            'What is your role in the organisation?':'Organisational_Role',
-                            'Job Share': 'Job_Share',
-                            'Flexibility with start and finish times': 'Flexibility_with_start_and_finish_times',
-                            'Working from home': 'Working_from_home',
-                            'Flexible Hours Based on Output': 'Flexible_Hours_Based_on_Output',
-                            'Remote Working': 'Remote_Working',
-                            'Condensed Hours': 'Condensed_Hours',
-                            'School Hours': 'School_Hours',
-                            'Term Time': 'Term_Time',
-                            'None of the above': 'None_of_the_above',##
-                            'Prefer not to say': 'PNTS',###
-                            'Flexible Working Comments': 'Flexible_Working_Comments',
-                            'What is your age?': 'Age',
-                            'What generation were you born into?': 'Generation',
-                            'What best describes your gender?': 'Gender',
-                            'Prefer to self describe your gender': 'Self_Describe_Gender',
-                            'Is your gender identity the same as the sex you were assigned at birth?': 'Gender_Identification_Same_as_Birth',
-                            'Would you describe your national identity as English?': 'English',
-                            'Would you describe your national identity as Welsh?': 'Welsh',
-                            'Would you describe your national identity as Scottish?': 'Scottish',
-                            'Would you describe your national identity as Northern Irish?': 'Northern_Irish',
-                            'Would you describe your national identity as British?': 'British',
-                            'Would you prefer not to say your national identity?': 'Prefer_Not_To_Say',
-                            'would you describe your national identity yourself?': 'National_Identity__Not_in_List',
-                            'What is your ethnicity?': 'Ethnicity',
-                            'Please tell us your ethnicity below if you do not personally identify with any of the options above.': 'Ethnicity_Not_in_List',
-                            'What is your first language?':'Language',
-                            'What is your sexual orientation?': 'Sexual_Orientation',
-                            'Prefer to self describe your sexual orientation': 'Self_Describe_Sexual_Orientation',
-                            'Are you open about your sexual orientation "At home"?': 'Sexual_Orientation_Openness_At_Home',
-                            'Are you open about your sexual orientation "With your manager"?': 'Sexual_Orientation_Openness_With_Manager',
-                            'Are you open about your sexual orientation "With colleagues"?': 'Sexual_Orientation_Openness_With_Colleagues',
-                            'Are you open about your sexual orientation "At work generally"?': 'Sexual_Orientation_Openness_At_Work_Generally',
-                            'Are you open about your sexual orientation "Prefer not to say"?': 'Sexual_Orientation_Openness_PNTS',
-                            'Do you have any dependants or caring responsibilities of "Nobody"?': 'Has_Caring_Responsibility',
-                            'Do you have any dependants or caring responsibilities of "a child/children (under 18)"?': 'Dependents_Children_Under_18',
-                            'Do you have any dependants or caring responsibilities of "a disabled child/children (under 18)"?': 'Dependents_Disabled_Children_Under_18',
-                            'Do you have any dependants or caring responsibilities of "of a disabled adult (18 and over)"?': 'Dependents_Disabled_Adult_18_and_Over',
-                            'Do you have any dependants or caring responsibilities of "an older person/people (65 and over)"?': 'Dependents_Older_Person_65_and_Over',
-                            'Do you have any dependants or caring responsibilities "Prefer not to say"?': 'Dependents_Prefer_Not_to_Say', ##
-                            'What is your religion?': 'Religion',
-                            'Please tell us your religion below if you do not personally identify with any of the options above.': 'Religion_Not_in_List',
-                            'Are you serving or have you ever served in the Armed Forces': 'Armed_Forces_Service',
-                            'Do you have a disability or long term health condition?': 'Disability_or_Long_Term_Health_Condition?',
-                            'Do you have difficulty seeing, even if wearing glasses?': 'Seeing_Dificulty',
-                            'Do you have difficulty hearing, even if using a hearing aid?': 'Hearing_Dificulty',
-                            'Do you have difficulty walking or climbing steps?': 'Walking_Dificulty',
-                            'Do you have difficulty remembering or concentrating?': 'Remembering_Dificulty',
-                            'Do you have difficulty (with self-care such as) washing all over or dressing?': 'SelfCare_Dificulty',
-                            'Using your usual language, do you have difficulty communicating?': 'Communicating_Dificulty',
-                            'Do you have difficulty raising a 2 litre bottle of water or soda from waist to eye level?': 'Raising_Water/Soda_Bottle_Dificulty',
-                            'Do you have difficulty using your hands and fingers?': 'Picking_Up_Small_Objects_Dificulty',
-                            'Elaborate on how your difficulty above affect you at work': 'Difficulty_Comment',
-                            'Do you consider yourself to be neuro-divergent':'Do you consider yourself to be neuro-divergent?',
-                            'Is your work schedule or work tasks arranged to account for difficulties you have in doing certain activities?': 'Work_Adaptation_for_Difficulties',
-                            'Has your workplace been modified to account for difficulties you have in doing certain activities?': 'Workplace_Modification_for_Difficulties',
-                            'How often do you feel worried, nervous or anxious?': 'How_often_feeling_worried_nervous_anxious',
-                            'Thinking about the last time you felt worried, nervous or anxious, how would you describe the level of these feelings?':'Level_of_last_worrying_anxiety_nervousness',
-                            'How often do you feel depressed?': 'How_often_feeling_depressed',
-                            'Thinking about the last time you felt depressed, how depressed did you feel?': 'Level_of_last_depression',
-                            'What was the occupation of your main household earner when you were aged about 14?': 'Main_Earner_Occupation_At_14',
-                            'Did the main household earner in your house work as an employee or were they self employed when you were aged about 14?': 'Main_Earner_Employee_or_SelfEmployed_At_14',######
-                            'Which type of school did you attend for most of the time between the ages of 11 and 16?': 'School_Type_Ages_11_16',
-                            'If you finished school after 1980, were you eligible for Free School Meals at any point during your school years?': 'Eligibility_For_Free_School_Meals',
-                            'Did either of your parents attend university by the time you were 18?': 'Parents_University_Attendance_By_18',
-                            'What is the highest level of qualification achieved by either of your parent(s) by the time you were 18?': 'Parents_Highest_Level_of_Qualification_By_18',######
-                            'Compared to people in general in the UK, would you describe yourself as coming from a lower socio-economic background?': 'Lower_Socio_Economic_Background',##########
-                            'How much of a priority is EDI in the company to "The senior leadership team"?': 'EDI_Priority_Senior_Leadership',
-                            'How much of a priority is EDI in the company to "Your line manager"?': 'EDI_Priority_Line_Manager',
-                            'How much of a priority is EDI in the company to "Your peers "?': 'EDI_Priority_Peers',
-                            'How much of a priority is EDI in the company to "Yourself "?': 'EDI_Priority_YourSelf',
-                            'What advice do you have for the Senior Leadership Team regarding EDI at this company?': 'Advice_for_Senior_Leadership_Team_re_EDI',
-                            'I feel like I belong at this organisation': 'I feel like I belong at business',
-                            'It feels like I do not belong at the business when something negative happens to me at work': 'I feel that I might not belong at business when something negative happens to me at work',
-                            'I can voice a contrary opinion without fear of negative consequences': 'I can voice a contrary opinion without fear of negative consequences',
-                            'I often worry I do not have things in common with others at the company': 'I often worry I do not have things in common with others at business',
-                            'I feel like my colleagues understand who I really am': 'I feel like my colleagues understand who I really am',
-                            'I feel respected and valued by my colleagues at the company': 'I feel respected and valued by my colleagues at business',
-                            'I feel respected and valued by my manager': 'I feel respected and valued by my manager',
-                            'I feel confident I can develop my career at the company': 'I feel confident I can develop my career at at business',
-                            'When I speak up at work, my opinion is valued': 'When I speak up at work, my opinion is valued',
-                            'Admin or routine daily tasks that don’t have a specific owner are divided fairly at the company': 'Administrative tasks that don’t have a specific owner, are divided fairly at business',
-                            'Promotion decisions are fair at the company': 'Promotion decisions are fair at business',
-                            'My job performance is assessed fairly': 'My job performance is evaluated fairly',
-                            'The company believes that people can always greatly improve their talents and abilities': 'Business believes that people can always improve their talents and abilities',
-                            'The company believes that people have a certain amount of talent, and they can’t do much to change it': 'Business believes that people have a certain amount of talent, and they can’t do much to change it',
-                            'Working here is important to the way that I think of myself as a person': 'Working at Business is important to the way that I think of myself as a person',
-                            'The information and resources I need to do my job effectively are readily available': 'The information and resources I need to do my job effectively are available',
-                            'The company hires people from diverse backgrounds': 'Business hires people from diverse backgrounds',
-                            'Would you agree that you are able to reach your full potential at work?': 'Would you agree that you are able to reach your full potential at work?',
-                            'Which of the following statements best describes how you feel in your team': 'Which of the following statements best describes how you feel in your team',
-                            'Is there anything this organisation can do to recruit a more diverse group of employees?': 'What ONE thing do you think the business should be doing to recruit a diverse range of employees?',
-                            'What things do you think the organisation does well in terms of creating a diverse and inclusive workplace?': 'What ONE thing do you think the business does well in terms of creating a diverse and inclusive workplace?',
-                            'What things do you think the organisation should be doing to create a work environment where everyone is respected and can thrive regardless of personal circumstances or background?': 'What ONE thing do you think the business should be doing to create a work environment where everyone is respected and can thrive regardless of personal circumstances or background?',
-                            'In what ways can this organisation ensure that everyone is treated fairly and can thrive?': 'In what ways can this organisation ensure that everyone is treated fairly and can thrive?', ## Is it the same as above question???
-                            'We want to support employees in setting up networks for our people if there is demand. What ERG would you be interested in us establishing?': 'We want to support employees in setting up networks for our people if there is demand. What ERG would you be interested in us establishing?',
-                            'How likely is it that you would recommend this company as an inclusive place to work to a friend or colleague?': 'How likely is it that you would recommend this business as an inclusive place to work to a friend or colleague?',
-                            'In the next 6 months, are you considering leaving this organisation because you do not feel respected or that you belong?': 'Considering_Leaveing_in_Next_6_Months',
-                            'Are there any other areas related to inclusion and diversity where you feel this organisation could do better, that have not been covered here?': 'What other comments would you like to make in relation to D&I at this organisation?'
-
-        }
-
-        standard_questions = ['How long have you worked at the organization?',
-                            'What is your annual salary',
-                            'Which department do you work in?',
-                            # 'Which part of the business do you work in?',
-                            # 'Which function do you work in?',
-                            # 'Which grade do you work at?',
-                            # 'Which brand do you work in?',
-                            'What is your role in the organisation?',
-                            'Job Share',
-                            'Flexibility with start and finish times',
-                            'Working from home',
-                            'Flexible Hours Based on Output',
-                            'Remote Working',
-                            'Condensed Hours',
-                            'School Hours',
-                            'Term Time',
-                            'None of the above',
-                            'Prefer not to say',###
-                            'Flexible Working Comments',
-                            'What is your age?',
-                            'What generation were you born into?',
-                            'What best describes your gender?',
-                            'Prefer to self describe your gender',
-                            'Is your gender identity the same as the sex you were assigned at birth?',
-                            'Would you describe your national identity as English?',
-                            'Would you describe your national identity as Welsh?',
-                            'Would you describe your national identity as Scottish?',
-                            'Would you describe your national identity as Northern Irish?',
-                            'Would you describe your national identity as British?',
-                            'Would you prefer not to say your national identity?',
-                            'would you describe your national identity yourself?',
-                            'What is your ethnicity?',
-                            'Please tell us your ethnicity below if you do not personally identify with any of the options above.',
-                            'What is your first language?',
-                            'What is your sexual orientation?',
-                            'Prefer to self describe your sexual orientation',
-                            'Are you open about your sexual orientation "At home"?',
-                            'Are you open about your sexual orientation "With your manager"?',
-                            'Are you open about your sexual orientation "With colleagues"?',
-                            'Are you open about your sexual orientation "At work generally"?',
-                            'Are you open about your sexual orientation "Prefer not to say"?',
-                            'Do you have any dependants or caring responsibilities of "Nobody"?',##
-                            'Do you have any dependants or caring responsibilities of "a child/children (under 18)"?',
-                            'Do you have any dependants or caring responsibilities of "a disabled child/children (under 18)"?',
-                            'Do you have any dependants or caring responsibilities of "of a disabled adult (18 and over)"?',
-                            'Do you have any dependants or caring responsibilities of "an older person/people (65 and over)"?',
-                            'Do you have any dependants or caring responsibilities "Prefer not to say"?', ##
-                            'What is your religion?',
-                            'Please tell us your religion below if you do not personally identify with any of the options above.',
-                            'Are you serving or have you ever served in the Armed Forces',
-                            'Do you have a disability or long term health condition?',
-                            'Do you have difficulty seeing, even if wearing glasses?',
-                            'Do you have difficulty hearing, even if using a hearing aid?',
-                            'Do you have difficulty walking or climbing steps?',
-                            'Do you have difficulty remembering or concentrating?',
-                            'Do you have difficulty (with self-care such as) washing all over or dressing?',
-                            'Using your usual language, do you have difficulty communicating?',
-                            'Do you have difficulty raising a 2 litre bottle of water or soda from waist to eye level?',
-                            'Do you have difficulty using your hands and fingers?',
-                            'Elaborate on how your difficulty above affect you at work',
-                            'Do you consider yourself to be neuro-divergent',
-                            'Can you elaborate on how your difficulty with certain tasks affects you at work?',
-                            'Is your work schedule or work tasks arranged to account for difficulties you have in doing certain activities?',
-                            'Has your workplace been modified to account for difficulties you have in doing certain activities?',
-                            'How often do you feel worried, nervous or anxious?',
-                            'Thinking about the last time you felt worried, nervous or anxious, how would you describe the level of these feelings?',
-                            'How often do you feel depressed?',
-                            'Thinking about the last time you felt depressed, how depressed did you feel?',
-                            'What was the occupation of your main household earner when you were aged about 14?',
-                            'Did the main household earner in your house work as an employee or were they self employed when you were aged about 14?',
-                            'Which type of school did you attend for most of the time between the ages of 11 and 16?',
-                            'If you finished school after 1980, were you eligible for Free School Meals at any point during your school years?',
-                            'Did either of your parents attend university by the time you were 18?',
-                            'What is the highest level of qualification achieved by either of your parent(s) by the time you were 18?',
-                            'Compared to people in general in the UK, would you describe yourself as coming from a lower socio-economic background?',
-                            'How much of a priority is EDI in the company to "The senior leadership team"?',
-                            'How much of a priority is EDI in the company to "Your line manager"?',
-                            'How much of a priority is EDI in the company to "Your peers "?',
-                            'How much of a priority is EDI in the company to "Yourself "?',
-                            'What advice do you have for the Senior Leadership Team regarding EDI at this company?',
-                            'I feel like I belong at this organisation',
-                            'It feels like I do not belong at the business when something negative happens to me at work',
-                            'I can voice a contrary opinion without fear of negative consequences',
-                            'I often worry I do not have things in common with others at the company',
-                            'I feel like my colleagues understand who I really am',
-                            'I feel respected and valued by my colleagues at the company',
-                            'I feel respected and valued by my manager',
-                            'I feel confident I can develop my career at the company',
-                            'When I speak up at work, my opinion is valued',
-                            'Admin or routine daily tasks that don’t have a specific owner are divided fairly at the company',
-                            'Promotion decisions are fair at the company',
-                            'My job performance is assessed fairly',
-                            'The company believes that people can always greatly improve their talents and abilities',
-                            'The company believes that people have a certain amount of talent, and they can’t do much to change it',
-                            'Working here is important to the way that I think of myself as a person',
-                            'The information and resources I need to do my job effectively are readily available',
-                            'The company hires people from diverse backgrounds',
-                            'Would you agree that you are able to reach your full potential at work?',
-                            'Which of the following statements best describes how you feel in your team',
-                            'Is there anything this organisation can do to recruit a more diverse group of employees?',
-                            'What things do you think the organisation does well in terms of creating a diverse and inclusive workplace?',
-                            'What things do you think the organisation should be doing to create a work environment where everyone is respected and can thrive regardless of personal circumstances or background?',
-                            'In what ways can this organisation ensure that everyone is treated fairly and can thrive?', ## Is it the same as above question???
-                            'We want to support employees in setting up networks for our people if there is demand. What ERG would you be interested in us establishing?',
-                            'How likely is it that you would recommend this company as an inclusive place to work to a friend or colleague?',
-                            'In the next 6 months, are you considering leaving this organisation because you do not feel respected or that you belong?',
-                            'Are there any other areas related to inclusion and diversity where you feel this organisation could do better, that have not been covered here?'
-
-        ]
-
-        # Initialize or retrieve mappings from session state
-        if 'mappings' not in st.session_state:
-            st.session_state['mappings'] = {}
-
-        def show_question_mapping_interface(actual_questions, standard_questions):
-            for question in actual_questions:
-                # Use session_state to store the mapping for each question
-                st.session_state['mappings'][question] = st.selectbox(
-                    question,
-                    options=[""] + standard_questions,  # Add blank option
-                    index=0,  # Default to blank option
-                    format_func=lambda x: x if x else "Select...",
-                    key=question  # Use question as the unique key
-                )
-
-        st.markdown("### Select the standard format for the questions:")
-        actual_questions = df.columns.tolist()
-        show_question_mapping_interface(actual_questions, standard_questions)
-
-        # Button to finalize mappings and rename columns
-        if st.button('Finalize Standard Formats'):
-            # Create a reverse mapping from selected standard questions to new column names
-            selected_standard_to_new = {
-                question: rename_columns[st.session_state['mappings'][question]]
-                # st.session_state['mappings'][question]: rename_columns[st.session_state['mappings'][question]] #[question]
-                for question in actual_questions
-                # if question in  st.session_state['mappings'].keys()
-
-                if st.session_state['mappings'][question] in rename_columns.keys()
-            }
-
-            # Apply the renaming based on the reverse mapping created above
-            df.rename(columns=selected_standard_to_new, inplace=True)
-
-            # Update the DataFrame in session state
-            st.session_state['df'] = df
-            st.session_state['question_mapping'] = selected_standard_to_new  # Save the mappings
-            st.success("Columns have been renamed to standard formats.")
+            # Save the processed DataFrame to the session state
+            # st.session_state['df'] = df
+            # Display basic information about the data########################## show her or after preprocessing?
+            # st.write("Data Overview:")
+            # st.write(f"Number of Rows: {df.shape[0]}")
+            # st.write(f"Number of Columns: {df.shape[1]}")
+            # st.text("A brief explanation about the dataset...")  # You can change this later
 
 
 
 
-        if 'df' in st.session_state:
-            df = st.session_state['df']
 
-            # Filling missing values as per the specified instructions
-            if 'What other comments would you like to make in relation to D&I at this organisation?' in df.columns:
-                df['What other comments would you like to make in relation to D&I at this organisation?'].fillna('No response', inplace=True)
 
-            
-            # For simplicity, let's assume that columns with less than 20 unique values can be treated as categorical
-            categorical_columns = [col for col in df.columns if df[col].nunique() < 20]#####################################################source of error for  q32
+                # rename_columns = {}
+                
 
-            # Converting these columns to 'category' data type
-            for col in categorical_columns:
-                df[col] = df[col].astype('category')
+                # standard_questions = []
+
+                # Initialize or retrieve mappings from session state
+                if 'mappings' not in st.session_state:
+                    st.session_state['mappings'] = {}
+
+                def show_question_mapping_interface(actual_questions, standard_questions):
+                    for question in actual_questions:
+                        # Use session_state to store the mapping for each question
+                        st.session_state['mappings'][question] = st.selectbox(
+                            question,
+                            options=[""] + standard_questions,  # Add blank option
+                            index=0,  # Default to blank option
+                            format_func=lambda x: x if x else "Select...",
+                            key=question  # Use question as the unique key
+                        )
+
+                st.markdown("#### Select the standard format for the questions:")
+                actual_questions = df.columns.tolist()
+                show_question_mapping_interface(actual_questions, standard_questions)
+
+                # Button to finalize mappings and rename columns
+                if st.button('Finalize Standard Formats'):
+                    # Create a reverse mapping from selected standard questions to new column names
+                    selected_standard_to_new = {
+                        question: rename_columns[st.session_state['mappings'][question]]
+                        # st.session_state['mappings'][question]: rename_columns[st.session_state['mappings'][question]] #[question]
+                        for question in actual_questions
+                        # if question in  st.session_state['mappings'].keys()
+
+                        if st.session_state['mappings'][question] in rename_columns.keys()
+                    }
+
+                    # Apply the renaming based on the reverse mapping created above
+                    df.rename(columns=selected_standard_to_new, inplace=True)
+
+                    # Update the DataFrame in session state
+                    st.session_state['df'] = df
+                    st.session_state['question_mapping'] = selected_standard_to_new  # Save the mappings
+                    st.success("Columns have been renamed to standard formats.")
+
+
+
+
+                if 'df' in st.session_state:
+                    df = st.session_state['df']
+
+                    # Filling missing values as per the specified instructions
+                    #if 'What other comments would you like to make in relation to D&I at this organisation?' in df.columns:
+                        #df['What other comments would you like to make in relation to D&I at this organisation?'].fillna('No response', inplace=True)
+                    columns_to_fillna = [
+                    'Self_Describe_Gender', 'Self_Describe_Sexual_Orientation', 'Difficulty_Comment', 'Flexible_Working_Comments', 
+                    'Advice_for_Senior_Leadership_Team_re_EDI', 'Religion_Not_in_List', 'Ethnicity_Not_in_List', 'National_Identity__Not_in_List',
+                    'What other comments would you like to make in relation to D&I at this organisation?',
+                    'What ONE thing do you think the business should be doing to recruit a diverse range of employees?',
+                    'What ONE thing do you think the business does well in terms of creating a diverse and inclusive workplace?',
+                    'What ONE thing do you think the business should be doing to create a work environment where everyone is respected and can thrive regardless of personal circumstances or background?',
+                    'In what ways can this organisation ensure that everyone is treated fairly and can thrive?', ## Is it the same as above question??? 
+                    'We want to support employees in setting up networks for our people if there is demand. What ERG would you be interested in us establishing?'
+                    ]
+
+                    for col in columns_to_fillna:
+                        if col in df.columns:
+                            df[col].fillna('No response', inplace=True)
+                    st.write(df.isnull().sum())
+                    
+
+                # For simplicity, let's assume that columns with less than 20 unique values can be treated as categorical
+                #categorical_columns = [col for col in df.columns if df[col].nunique() < 20]#####################################################source of error for  q32
+
+                # Converting these columns to 'category' data type
+                #for col in categorical_columns:
+                    #df[col] = df[col].astype('category')
+
+                # if 'df' in st.session_state:
+                # df = st.session_state['df']
+                # Additional transformations as per your notebook
+                df.applymap(lambda x: x.replace('Artex', 'this organisation') if isinstance(x, str) else x)
+                df.applymap(lambda x: x.replace('artex', 'this organisation') if isinstance(x, str) else x)
+
+                if 'Salary' in df.columns:
+                    # Assuming the second column is named 'Salary_Range' and is formatted like '£30,000-£40,000'
+                    # Create a new column 'Average_Salary' by splitting the 'Salary_Range', converting to integers, and taking the average
+                    # Define a function to handle salary range conversion and averaging
+
+                    def average_salary(salary_range):
+                        if 'prefer not to say' in salary_range.lower():
+                            return None
+                        if 'or more' in salary_range.lower():
+                            # If the range says 'or more', use the single value as the average
+                            min_salary = salary_range.lower().replace('£', '').replace(' or more', '').replace(',', '')
+                            return int(min_salary)
+                        try:
+                            min_salary, max_salary = salary_range.replace('£', '').replace(',', '').split('to')
+                            return round((int(min_salary) + int(max_salary)) / 2)
+                        except ValueError:
+                            # Log the error value and return None or some default
+                            print(f"Cannot convert {salary_range}")
+                            return None
+
+                    # Apply the function to the 'Salary_Range' column
+                    df['Average_Salary'] = df['Salary'].apply(average_salary)
+                    # Update the DataFrame in session state
+                    st.session_state['df'] = df
+
 
             # if 'df' in st.session_state:
-            # df = st.session_state['df']
-            # Additional transformations as per your notebook
-            # df.applymap(lambda x: x.replace('Artex', 'this organisation') if isinstance(x, str) else x)
-            # df.applymap(lambda x: x.replace('artex', 'this organisation') if isinstance(x, str) else x)
+            #     df = st.session_state['df']
+            #     # Additional transformations as per your notebook
+            #     df.applymap(lambda x: x.replace('Artex', 'this organisation') if isinstance(x, str) else x)
+            #     df.applymap(lambda x: x.replace('artex', 'this organisation') if isinstance(x, str) else x)
 
-            if 'Salary' in df.columns:
-                # Assuming the second column is named 'Salary_Range' and is formatted like '£30,000-£40,000'
-                # Create a new column 'Average_Salary' by splitting the 'Salary_Range', converting to integers, and taking the average
-                # Define a function to handle salary range conversion and averaging
 
-                def average_salary(salary_range):
-                    if 'prefer not to say' in salary_range.lower():
-                        return None
-                    if 'or more' in salary_range.lower():
-                        # If the range says 'or more', use the single value as the average
-                        min_salary = salary_range.lower().replace('£', '').replace(' or more', '').replace(',', '')
-                        return int(min_salary)
+                if 'Religion' in df.columns:
+                    df['Religion'].replace({'Christian (including Church of England, Catholic, Protestant and all other Christian denominations)': 'Christian'}, inplace=True)
+
+                # Replacement in Parents_University_Attendance_By_18 column of the df DataFrame
+                if 'Parents_University_Attendance_By_18' in df.columns:
+                    df['Parents_University_Attendance_By_18'] = df['Parents_University_Attendance_By_18'].replace({'No, neither of my parents attended university': 'No, neither of my parents', 'Yes, one or both of my parents attended university': 'Yes, one or both'})
+
+                mapping_dict = {
+                    'I feel like a key component of my team with real influence over decisions': 'Key Component',
+                    'I have some influence over decisions, but do not feel like a key component of my team': 'Some Influence',
+                    'I feel safe voicing my views and opinions, but I have little influence over decisions': 'Safe Voicing',
+                    'I am noticed by some people, but do not feel safe voicing my opinions': 'Unsafe Voicing',
+                    'I am generally ignored by others': 'Ignored by Others',
+                    'Prefer not to say': 'PNTS'
+                }
+
+                # Apply the mapping to create a new column with short descriptions
+                if 'Which of the following statements best describes how you feel in your team' in df.columns:
+                    df['Which of the following statements best describes how you feel in your team'] = df['Which of the following statements best describes how you feel in your team'].map(mapping_dict)
+
+
+                # Apply the mapping to create a new column with short descriptions
+                #mapping_dict1 = {
+                #'Senior, middle or junior managers or administrators such as: finance manager, chief executive, large business owner, office manager, retail manager, bank manager, restaurant manager, warehouse manager.': 'Managers/Administrators',
+                #'Long-term unemployed (claimed Jobseeker’s Allowance or earlier unemployment benefit for more than a year)': 'Long-term Unemployed',
+                #'Technical and craft occupations such as: motor mechanic, plumber, printer, electrician, gardener, train driver.': 'Technical/Crafts',
+                #'Routine, semi-routine manual and service occupations such as: postal worker, machine operative, security guard, caretaker, farm worker, catering assistant, sales assistant, HGV driver, cleaner, porter, packer, labourer, waiter/waitress, bar staff.': 'Manual and Service',
+                #'Clerical and intermediate occupations such as: secretary, personal assistant, call centre agent, clerical worker, nursery nurse.': 'Clerical/Intermediate',
+                #'Small business owners who employed less than 25 people such as: corner shop owners, small plumbing companies, retail shop owner, single restaurant or cafe owner, taxi owner, garage owner': 'Small Business Owners',
+                #'Modern professional & traditional professional occupations such as: teacher, nurse, physiotherapist, social worker, musician, police officer (sergeant or above), software designer, accountant, solicitor, medical practitioner, scientist, civil / mechanical engineer.': 'Professionals',
+                #'This question does not apply to me': 'Not Applicable',
+                #'Prefer not to say': 'Prefer not to say'
+                #}
+                #if 'Main_Earner_Occupation_At_14' in df.columns:
+                    #df['Main_Earner_Occupation_At_14'] = df['Main_Earner_Occupation_At_14'].map(mapping_dict1)
+
+                # Filling missing values as per the specified instructions
+                #if 'What other comments would you like to make in relation to D&I at this organisation?' in df.columns:
+                    #df['What other comments would you like to make in relation to D&I at this organisation?'].fillna('No response', inplace=True)
+
+                # # For simplicity, let's assume that columns with less than 20 unique values can be treated as categorical
+                #categorical_columns = [col for col in df.columns if df[col].nunique() < 20]
+
+                # # Converting these columns to 'category' data type
+                #for col in categorical_columns:
+                #df[col] = df[col].astype('category')
+                categorical_columns = []
+                for col in df.columns:
                     try:
-                        min_salary, max_salary = salary_range.replace('£', '').replace(',', '').split('to')
-                        return round((int(min_salary) + int(max_salary)) / 2)
-                    except ValueError:
-                        # Log the error value and return None or some default
-                        print(f"Cannot convert {salary_range}")
-                        return None
+                        if df[col].nunique() < 20:
+                            categorical_columns.append(col) 
+                    except Exception as e:
+                        print(f"Error processing column '{col}': {e}")
 
-                # Apply the function to the 'Salary_Range' column
-                df['Average_Salary'] = df['Salary'].apply(average_salary)
+
+
+                st.write("Download the cleaned data using the link provided to save time and avoid reprocessing this data in the future.")
+                csv_filename = f"{uploaded_file.name.split('.')[-2]}_Processed.csv"
+                df.to_csv(csv_filename, encoding='utf-8', index=False)
+
+                # Function to convert a DataFrame to a CSV download link
+                def convert_df_to_csv_download_link(df, filename):
+                    csv = df.to_csv(index=False)
+                    b64 = base64.b64encode(csv.encode()).decode()
+                    href = f'<a href="data:file/csv;base64,{b64}" download="{filename}" target="_blank">Download {filename}</a>'
+                    return href
+                
+                # Download button for the file
+                st.markdown(convert_df_to_csv_download_link(df, csv_filename), unsafe_allow_html=True)
+
+
+
+                #******************************** New created sub dataframes *************************************#
+                # Define the columns related to mental health
+                mental_health_columns_1 = ['How_often_feeling_worried_nervous_anxious', 'How_often_feeling_depressed']
+                mental_health_columns_2 = ['Level_of_last_worrying_anxiety_nervousness', 'Level_of_last_depression']
+
+                # Define the difficulty levels indicating mental health
+                mental_health_levels_1 = ['Weekly', 'Monthly', 'Daily']
+                mental_health_levels_2 = ['A lot', 'Somewhere in between a little and a lot']
+
+                if set(mental_health_columns_1 + mental_health_columns_2).issubset(df.columns):
+
+                    # Initialize an empty DataFrame for employees with mental health
+                    df_mental_health = pd.DataFrame()
+
+                    # Iterate through each mental health column and filter employees with mental health issues
+                    # for column in mental_health_columns:
+                    #     df_mental_health = pd.concat([df_mental_health, df[df[column].isin(mental_health_levels)]])
+                    for column in mental_health_columns_1:
+                        df_mental_health = pd.concat([df_mental_health, df[df[column].isin(mental_health_levels_1)]])
+
+                    for column in mental_health_columns_2:
+                        df_mental_health = pd.concat([df_mental_health, df[df[column].isin(mental_health_levels_2)]])
+
+                    # Drop duplicates in case an employee has mental health isues in multiple areas
+                    df_mental_health = df_mental_health.drop_duplicates()
+                    st.session_state['df_mental_health'] = df_mental_health
+                    #----------------------------------------------------------------------------------------------------------
+                    # Create a new column 'has_mental_health' and set it to 'Yes' for rows in df_mental_health, 'No' otherwise
+                    df['has_mental_health'] = 'No'
+                    df.loc[df_mental_health.index, 'has_mental_health'] = 'Yes'
+
+
+                # Filter the dataframe for LGBT colleagues
+                if 'Sexual_Orientation' in df.columns:
+                    df_LGBT = df[df['Sexual_Orientation'].isin(['Bi', 'Gay man', 'Gay woman/lesbian'])]
+                    st.session_state['df_LGBT'] = df_LGBT
+
+                    # Create a new column 'Has_LGBT' and set it to 'Yes' for rows in df_LGBT, 'No' otherwise
+                    df['LGBT'] = 'No'
+                    df.loc[df_LGBT.index, 'LGBT'] = 'Yes'
+
+
+
+                # Define the columns related to disabilities
+                disability_columns = ['Seeing_Dificulty', 'Hearing_Dificulty',
+                                    'Walking_Dificulty', 'Remembering_Dificulty',
+                                    'SelfCare_Dificulty', 'Communicating_Dificulty',
+                                    'Raising_Water/Soda_Bottle_Dificulty',
+                                    'Picking_Up_Small_Objects_Dificulty']
+
+                # Define the difficulty levels indicating disabilities
+                difficulty_levels = ['Yes, some difficulty', 'Yes, a lot of difficulty', 'Cannot do it at all']
+
+                if set(disability_columns).issubset(df.columns):
+                    # Initialize an empty DataFrame for employees with difficulties
+                    df_disabilities = pd.DataFrame()
+
+                    # Iterate through each disability column and filter employees with difficulties
+                    for column in disability_columns:
+                        df_disabilities = pd.concat([df_disabilities, df[df[column].isin(difficulty_levels)]])
+
+                    # Drop duplicates in case an employee has difficulties in multiple areas
+                    df_disabilities = df_disabilities.drop_duplicates()
+                    st.session_state['df_disabilities'] = df_disabilities
+                    #------------------------------------------------------------------------
+                    # Initialize a new column 'Has_Disability' in the main DataFrame df
+                    df['Has_Disability'] = 'No'
+                    df.loc[df_disabilities.index, 'Has_Disability'] = 'Yes'
+
+
+                # Filter the dataframe for women respondents
+                if 'Gender' in df.columns:
+                    df_women = df[df['Gender'] == 'Woman']
+                    st.session_state['df_women'] = df_women
+
+
+                # Filter the dataframe for colleagues with minority ethnicity (Indian, All other mixed background)
+                if 'Ethnicity' in df.columns:
+                    # df_minority_ethnicity = df[df['Ethnicity'].isin(['Indian', 'Any other mixed background'])]############################################
+                    df_minority_ethnicity = df[~df['Ethnicity'].isin(['English, Welsh, Scottish, Northern Irish or British', 'Any other white background'])]
+                    st.session_state['df_minority_ethnicity'] = df_minority_ethnicity
+
+                # Filter the dataframe for colleagues with religious beliefs (excluding 'No religion' and 'Prefer not to say')
+                if 'Religion' in df.columns:
+                    df_religious_beliefs = df[~df['Religion'].isin(['No religion', 'Prefer not to say'])]
+                    st.session_state['df_religious_beliefs'] = df_religious_beliefs
+
+                # # Filter the dataframe for colleagues with caring responsibilities
+                if 'Has_Caring_Responsibility' in df.columns:
+                    df_caring_responsibilities = df[df['Has_Caring_Responsibility'] == 'Yes']
+                    st.session_state['df_caring_responsibilities'] = df_caring_responsibilities
+                #**********************************************************************************************
+                if st.checkbox('Show processed data'):
+                        # st.write(df.head())
+                        st.dataframe(df) 
                 # Update the DataFrame in session state
                 st.session_state['df'] = df
 
 
-        # if 'df' in st.session_state:
-        #     df = st.session_state['df']
-        #     # Additional transformations as per your notebook
-        #     df.applymap(lambda x: x.replace('Artex', 'this organisation') if isinstance(x, str) else x)
-        #     df.applymap(lambda x: x.replace('artex', 'this organisation') if isinstance(x, str) else x)
-
-
-            if 'Religion' in df.columns:
-                df['Religion'].replace({'Christian (including Church of England, Catholic, Protestant and all other Christian denominations)': 'Christian'}, inplace=True)
-
-            # Replacement in Parents_University_Attendance_By_18 column of the df DataFrame
-            if 'Parents_University_Attendance_By_18' in df.columns:
-                df['Parents_University_Attendance_By_18'] = df['Parents_University_Attendance_By_18'].replace({'No, neither of my parents attended university': 'No, neither of my parents', 'Yes, one or both of my parents attended university': 'Yes, one or both'})
-
-            mapping_dict = {
-                'I feel like a key component of my team with real influence over decisions': 'Key Component',
-                'I have some influence over decisions, but do not feel like a key component of my team': 'Some Influence',
-                'I feel safe voicing my views and opinions, but I have little influence over decisions': 'Safe Voicing',
-                'I am noticed by some people, but do not feel safe voicing my opinions': 'Unsafe Voicing',
-                'I am generally ignored by others': 'Ignored by Others',
-                'Prefer not to say': 'PNTS'
-            }
-
-            # Apply the mapping to create a new column with short descriptions
-            if 'Which of the following statements best describes how you feel in your team' in df.columns:
-                df['Which of the following statements best describes how you feel in your team'] = df['Which of the following statements best describes how you feel in your team'].map(mapping_dict)
-
-
-            # Apply the mapping to create a new column with short descriptions
-            #mapping_dict1 = {
-            #'Senior, middle or junior managers or administrators such as: finance manager, chief executive, large business owner, office manager, retail manager, bank manager, restaurant manager, warehouse manager.': 'Managers/Administrators',
-            #'Long-term unemployed (claimed Jobseeker’s Allowance or earlier unemployment benefit for more than a year)': 'Long-term Unemployed',
-            #'Technical and craft occupations such as: motor mechanic, plumber, printer, electrician, gardener, train driver.': 'Technical/Crafts',
-            #'Routine, semi-routine manual and service occupations such as: postal worker, machine operative, security guard, caretaker, farm worker, catering assistant, sales assistant, HGV driver, cleaner, porter, packer, labourer, waiter/waitress, bar staff.': 'Manual and Service',
-            #'Clerical and intermediate occupations such as: secretary, personal assistant, call centre agent, clerical worker, nursery nurse.': 'Clerical/Intermediate',
-            #'Small business owners who employed less than 25 people such as: corner shop owners, small plumbing companies, retail shop owner, single restaurant or cafe owner, taxi owner, garage owner': 'Small Business Owners',
-            #'Modern professional & traditional professional occupations such as: teacher, nurse, physiotherapist, social worker, musician, police officer (sergeant or above), software designer, accountant, solicitor, medical practitioner, scientist, civil / mechanical engineer.': 'Professionals',
-            #'This question does not apply to me': 'Not Applicable',
-            #'Prefer not to say': 'Prefer not to say'
-            #}
-            #if 'Main_Earner_Occupation_At_14' in df.columns:
-                #df['Main_Earner_Occupation_At_14'] = df['Main_Earner_Occupation_At_14'].map(mapping_dict1)
-
-            # Filling missing values as per the specified instructions
-            # if 'What other comments would you like to make in relation to D&I at this organisation?' in df.columns:
-            #     df['What other comments would you like to make in relation to D&I at this organisation?'].fillna('No response', inplace=True)
-
-            # # For simplicity, let's assume that columns with less than 20 unique values can be treated as categorical
-            # categorical_columns = [col for col in df.columns if df[col].nunique() < 20]
-
-            # # Converting these columns to 'category' data type
-            # for col in categorical_columns:
-            #     df[col] = df[col].astype('category')
-            # ... other transformations ...
-
-            #******************************** New created dataframes *************************************#
-            # Define the columns related to mental health
-            mental_health_columns_1 = ['How_often_feeling_worried_nervous_anxious', 'How_often_feeling_depressed']
-            mental_health_columns_2 = ['Level_of_last_worrying_anxiety_nervousness', 'Level_of_last_depression']
-
-            # Define the difficulty levels indicating mental health
-            mental_health_levels_1 = ['Weekly', 'Monthly', 'Daily']
-            mental_health_levels_2 = ['A lot', 'Somewhere in between a little and a lot']
-
-            if set(mental_health_columns_1 + mental_health_columns_2).issubset(df.columns):
-
-                # Initialize an empty DataFrame for employees with mental health
-                df_mental_health = pd.DataFrame()
-
-                # Iterate through each mental health column and filter employees with mental health issues
-                # for column in mental_health_columns:
-                #     df_mental_health = pd.concat([df_mental_health, df[df[column].isin(mental_health_levels)]])
-                for column in mental_health_columns_1:
-                    df_mental_health = pd.concat([df_mental_health, df[df[column].isin(mental_health_levels_1)]])
-
-                for column in mental_health_columns_2:
-                    df_mental_health = pd.concat([df_mental_health, df[df[column].isin(mental_health_levels_2)]])
-
-                # Drop duplicates in case an employee has mental health isues in multiple areas
-                df_mental_health = df_mental_health.drop_duplicates()
-                st.session_state['df_mental_health'] = df_mental_health
-                #----------------------------------------------------------------------------------------------------------
-                # Create a new column 'has_mental_health' and set it to 'Yes' for rows in df_mental_health, 'No' otherwise
-                df['has_mental_health'] = 'No'
-                df.loc[df_mental_health.index, 'has_mental_health'] = 'Yes'
 
 
 
-            # Filter the dataframe for LGBT colleagues
-            if 'Sexual_Orientation' in df.columns:
-                df_LGBT = df[df['Sexual_Orientation'].isin(['Bi', 'Gay man', 'Gay woman/lesbian'])]
-                st.session_state['df_LGBT'] = df_LGBT
+    if st.checkbox('Tick the box below if you have already processed this dataset.'):
+        if 'df' in st.session_state:  # Check if the main DataFrame is in session state
+                df = st.session_state['df']  # Retrieve the main DataFrame from session state
+                if df.columns.tolist() in rename_columns.values():
 
-                # Create a new column 'Has_LGBT' and set it to 'Yes' for rows in df_LGBT, 'No' otherwise
-                df['LGBT'] = 'No'
-                df.loc[df_LGBT.index, 'LGBT'] = 'Yes'
+                    #******************************** New created sub dataframes *************************************#
+                    # Define the columns related to mental health
+                    mental_health_columns_1 = ['How_often_feeling_worried_nervous_anxious', 'How_often_feeling_depressed']
+                    mental_health_columns_2 = ['Level_of_last_worrying_anxiety_nervousness', 'Level_of_last_depression']
 
+                    # Define the difficulty levels indicating mental health
+                    mental_health_levels_1 = ['Weekly', 'Monthly', 'Daily']
+                    mental_health_levels_2 = ['A lot', 'Somewhere in between a little and a lot']
 
+                    if set(mental_health_columns_1 + mental_health_columns_2).issubset(df.columns):
 
-            # Define the columns related to disabilities
-            disability_columns = ['Seeing_Dificulty', 'Hearing_Dificulty',
-                                'Walking_Dificulty', 'Remembering_Dificulty',
-                                'SelfCare_Dificulty', 'Communicating_Dificulty',
-                                'Raising_Water/Soda_Bottle_Dificulty',
-                                'Picking_Up_Small_Objects_Dificulty']
+                        # Initialize an empty DataFrame for employees with mental health
+                        df_mental_health = pd.DataFrame()
 
-            # Define the difficulty levels indicating disabilities
-            difficulty_levels = ['Yes, some difficulty', 'Yes, a lot of difficulty', 'Cannot do it at all']
+                        # Iterate through each mental health column and filter employees with mental health issues
+                        # for column in mental_health_columns:
+                        #     df_mental_health = pd.concat([df_mental_health, df[df[column].isin(mental_health_levels)]])
+                        for column in mental_health_columns_1:
+                            df_mental_health = pd.concat([df_mental_health, df[df[column].isin(mental_health_levels_1)]])
 
-            if set(disability_columns).issubset(df.columns):
-                # Initialize an empty DataFrame for employees with difficulties
-                df_disabilities = pd.DataFrame()
+                        for column in mental_health_columns_2:
+                            df_mental_health = pd.concat([df_mental_health, df[df[column].isin(mental_health_levels_2)]])
 
-                # Iterate through each disability column and filter employees with difficulties
-                for column in disability_columns:
-                    df_disabilities = pd.concat([df_disabilities, df[df[column].isin(difficulty_levels)]])
-
-                # Drop duplicates in case an employee has difficulties in multiple areas
-                df_disabilities = df_disabilities.drop_duplicates()
-                st.session_state['df_disabilities'] = df_disabilities
-                #------------------------------------------------------------------------
-                # Initialize a new column 'Has_Disability' in the main DataFrame df
-                df['Has_Disability'] = 'No'
-                df.loc[df_disabilities.index, 'Has_Disability'] = 'Yes'
-
-
-            # Filter the dataframe for women respondents
-            if 'Gender' in df.columns:
-                df_women = df[df['Gender'] == 'Woman']
-                st.session_state['df_women'] = df_women
+                        # Drop duplicates in case an employee has mental health isues in multiple areas
+                        df_mental_health = df_mental_health.drop_duplicates()
+                        st.session_state['df_mental_health'] = df_mental_health
+                        #----------------------------------------------------------------------------------------------------------
+                        # Create a new column 'has_mental_health' and set it to 'Yes' for rows in df_mental_health, 'No' otherwise
+                        df['has_mental_health'] = 'No'
+                        df.loc[df_mental_health.index, 'has_mental_health'] = 'Yes'
 
 
-            # Filter the dataframe for colleagues with minority ethnicity (Indian, All other mixed background)
-            if 'Ethnicity' in df.columns:
-                # df_minority_ethnicity = df[df['Ethnicity'].isin(['Indian', 'Any other mixed background'])]############################################
-                df_minority_ethnicity = df[~df['Ethnicity'].isin(['English, Welsh, Scottish, Northern Irish or British', 'Any other white background'])]
-                st.session_state['df_minority_ethnicity'] = df_minority_ethnicity
+                    # Filter the dataframe for LGBT colleagues
+                    if 'Sexual_Orientation' in df.columns:
+                        df_LGBT = df[df['Sexual_Orientation'].isin(['Bi', 'Gay man', 'Gay woman/lesbian'])]
+                        st.session_state['df_LGBT'] = df_LGBT
 
-            # Filter the dataframe for colleagues with religious beliefs (excluding 'No religion' and 'Prefer not to say')
-            if 'Religion' in df.columns:
-                df_religious_beliefs = df[~df['Religion'].isin(['No religion', 'Prefer not to say'])]
-                st.session_state['df_religious_beliefs'] = df_religious_beliefs
+                        # Create a new column 'Has_LGBT' and set it to 'Yes' for rows in df_LGBT, 'No' otherwise
+                        df['LGBT'] = 'No'
+                        df.loc[df_LGBT.index, 'LGBT'] = 'Yes'
 
-            # # Filter the dataframe for colleagues with caring responsibilities
-            if 'Has_Caring_Responsibility' in df.columns:
-                df_caring_responsibilities = df[df['Has_Caring_Responsibility'] == 'Yes']
-                st.session_state['df_caring_responsibilities'] = df_caring_responsibilities
-            #**********************************************************************************************
 
-        #if st.checkbox('Show processed data'):
-            # st.write(df.head())
-           # st.dataframe(df)
 
-    # else:
-    #     # Use the DataFrame from session state
-    #     df = st.session_state['df']
-    #     st.write("Currently using loaded data.")
-        # if st.checkbox('Upload a new dataset'):
-        #     uploaded_file = st.sidebar.file_uploader("Choose a new csv or excel file", type=["csv", "xlsx"], key="new_upload")
-        #     if uploaded_file is not None:
-        #         # Process the new uploaded file
-        #         file_extension = uploaded_file.name.split('.')[-1]
-        #         if file_extension.lower() == 'csv':
-        #             df = pd.read_csv(uploaded_file)
-        #         elif file_extension.lower() == 'xlsx':
-        #             df = pd.read_excel(uploaded_file)
-        #         # Save the new processed DataFrame to the session state
-        #         st.session_state['df'] = df
-        #         st.experimental_rerun()
+                    # Define the columns related to disabilities
+                    disability_columns = ['Seeing_Dificulty', 'Hearing_Dificulty',
+                                        'Walking_Dificulty', 'Remembering_Dificulty',
+                                        'SelfCare_Dificulty', 'Communicating_Dificulty',
+                                        'Raising_Water/Soda_Bottle_Dificulty',
+                                        'Picking_Up_Small_Objects_Dificulty']
+
+                    # Define the difficulty levels indicating disabilities
+                    difficulty_levels = ['Yes, some difficulty', 'Yes, a lot of difficulty', 'Cannot do it at all']
+
+                    if set(disability_columns).issubset(df.columns):
+                        # Initialize an empty DataFrame for employees with difficulties
+                        df_disabilities = pd.DataFrame()
+
+                        # Iterate through each disability column and filter employees with difficulties
+                        for column in disability_columns:
+                            df_disabilities = pd.concat([df_disabilities, df[df[column].isin(difficulty_levels)]])
+
+                        # Drop duplicates in case an employee has difficulties in multiple areas
+                        df_disabilities = df_disabilities.drop_duplicates()
+                        st.session_state['df_disabilities'] = df_disabilities
+                        #------------------------------------------------------------------------
+                        # Initialize a new column 'Has_Disability' in the main DataFrame df
+                        df['Has_Disability'] = 'No'
+                        df.loc[df_disabilities.index, 'Has_Disability'] = 'Yes'
+
+
+                    # Filter the dataframe for women respondents
+                    if 'Gender' in df.columns:
+                        df_women = df[df['Gender'] == 'Woman']
+                        st.session_state['df_women'] = df_women
+
+
+                    # Filter the dataframe for colleagues with minority ethnicity (Indian, All other mixed background)
+                    if 'Ethnicity' in df.columns:
+                        # df_minority_ethnicity = df[df['Ethnicity'].isin(['Indian', 'Any other mixed background'])]############################################
+                        df_minority_ethnicity = df[~df['Ethnicity'].isin(['English, Welsh, Scottish, Northern Irish or British', 'Any other white background'])]
+                        st.session_state['df_minority_ethnicity'] = df_minority_ethnicity
+
+                    # Filter the dataframe for colleagues with religious beliefs (excluding 'No religion' and 'Prefer not to say')
+                    if 'Religion' in df.columns:
+                        df_religious_beliefs = df[~df['Religion'].isin(['No religion', 'Prefer not to say'])]
+                        st.session_state['df_religious_beliefs'] = df_religious_beliefs
+
+                    # # Filter the dataframe for colleagues with caring responsibilities
+                    if 'Has_Caring_Responsibility' in df.columns:
+                        df_caring_responsibilities = df[df['Has_Caring_Responsibility'] == 'Yes']
+                        st.session_state['df_caring_responsibilities'] = df_caring_responsibilities
+                    #**********************************************************************************************
+                        
+                    if st.checkbox('Show data'):
+                        # st.write(df.head())
+                        st.dataframe(df) 
+                    # Update the DataFrame in session state
+                    st.write("You can now navigate between pages.")
+                    st.session_state['df'] = df
+
+                else:
+                    st.write("It appears that the dataset has not been processed correctly. Please ensure it is processed again.")
+
 
 
 
@@ -717,47 +936,48 @@ elif page == "Demographic Analysis":
             default=next(iter(filtered_options.keys()), None) # Default to the first available option or None
         )
 
-
-        if 'df_caring_responsibilities' in st.session_state:
-            df_caring_responsibilities = st.session_state['df_caring_responsibilities']
-        else:
-            st.error("Data for caring responsibilities not found. Please run the Data Preprocessing step first.")
-
         # Check for each sub-dataframe
-        if 'df_religious_beliefs' in st.session_state:
-            df_religious_beliefs = st.session_state['df_religious_beliefs']
-        else:
-            st.error("Data for df_religious_beliefs not found. Please run the Data Preprocessing step first.")
+        if 'Has_Caring_Responsibility' in df.columns:
+          if 'df_caring_responsibilities' in st.session_state:
+              df_caring_responsibilities = st.session_state['df_caring_responsibilities']
+          else:
+              st.error("Data for caring responsibilities not found. Please run the Data Preprocessing step first.")
 
-        # Check for each sub-dataframe
-        if 'df_minority_ethnicity' in st.session_state:
-            df_minority_ethnicity = st.session_state['df_minority_ethnicity']
-        else:
-            st.error("Data for df_minority_ethnicity not found. Please run the Data Preprocessing step first.")
+        if 'Religion' in df.columns:
+          if 'df_religious_beliefs' in st.session_state:
+              df_religious_beliefs = st.session_state['df_religious_beliefs']
+          else:
+              st.error("Data for df_religious_beliefs not found. Please run the Data Preprocessing step first.")
 
-        # Check for each sub-dataframe
-        if 'df_women' in st.session_state:
-            df_women = st.session_state['df_women']
-        else:
-            st.error("Data for df_women not found. Please run the Data Preprocessing step first.")
+        if 'Ethnicity' in df.columns:
+          if 'df_minority_ethnicity' in st.session_state:
+              df_minority_ethnicity = st.session_state['df_minority_ethnicity']
+          else:
+              st.error("Data for df_minority_ethnicity not found. Please run the Data Preprocessing step first.")
 
-        # Check for each sub-dataframe
-        if 'df_disabilities' in st.session_state:
-            df_disabilities = st.session_state['df_disabilities']
-        else:
-            st.error("Data for df_disabilities not found. Please run the Data Preprocessing step first.")
+        if 'Gender' in df.columns:
+          if 'df_women' in st.session_state:
+              df_women = st.session_state['df_women']
+          else:
+              st.error("Data for df_women not found. Please run the Data Preprocessing step first.")
 
-        # Check for each sub-dataframe
-        if 'df_LGBT' in st.session_state:
-            df_LGBT = st.session_state['df_LGBT']
-        else:
-            st.error("Data for df_LGBT not found. Please run the Data Preprocessing step first.")
+        if 'Has_Disability' in df.columns:
+          if 'df_disabilities' in st.session_state:
+              df_disabilities = st.session_state['df_disabilities']
+          else:
+              st.error("Data for df_disabilities not found. Please run the Data Preprocessing step first.")
 
-        # Check for each sub-dataframe
-        if 'df_mental_health' in st.session_state:
-            df_mental_health = st.session_state['df_mental_health']
-        else:
-            st.error("Data for df_mental_health not found. Please run the Data Preprocessing step first.")
+        if 'LGBT' in df.columns:
+          if 'df_LGBT' in st.session_state:
+              df_LGBT = st.session_state['df_LGBT']
+          else:
+              st.error("Data for df_LGBT not found. Please run the Data Preprocessing step first.")
+
+        if 'has_mental_health' in df.columns:
+          if 'df_mental_health' in st.session_state:
+              df_mental_health = st.session_state['df_mental_health']
+          else:
+              st.error("Data for df_mental_health not found. Please run the Data Preprocessing step first.")
 
 
 
@@ -894,7 +1114,7 @@ elif page == "Demographic Analysis":
                             text='Percentage',
                             orientation='h',
                             labels={'Percentage':'Percentage of Total Responses'})
-                fig.update_traces(texttemplate='%{text:.2f}%', textposition='inside')
+                fig.update_traces(texttemplate='%{text:.2f}%', textposition='outside')
                 fig.update_layout(
                     title_text='Seniority in the Organisation',
                     xaxis_title="Percentage",
@@ -930,8 +1150,7 @@ elif page == "Demographic Analysis":
                     # Create the horizontal bar chart using Plotly Express
                     fig = px.bar(department_data, y='Department', x='Percentage',
                                 orientation='h',
-                                text='Percentage',
-                                color_discrete_sequence=['skyblue'])
+                                text='Percentage')
 
                     # Update the layout and add text on bars
                     fig.update_traces(texttemplate='%{text:.1f}%', textposition='outside')
@@ -1227,6 +1446,30 @@ elif page == "Demographic Analysis":
                     st.markdown("### Summary of Comments on Difficulties")
                     st.markdown("The bullet points below are a concise summary of the key points made by individuals regarding their difficulties.")
                     display_summary(st.session_state['difficulty_analysis_results']['Difficulty_Comment'])
+                #--------------------------------------------------------------------------------------------------------------------------------------------------
+                
+                if 'Elaborate on 'Elaborate on how your difficulty affects you at work?'?' in df.columns:
+
+                  # Initialize a list in session state for storing analysis results if it doesn't exist
+                  if 'difficulty_affect_analysis_results' not in st.session_state:
+                    st.session_state['difficulty_affect_analysis_results'] = {}
+
+                    # Filter out NaN values and entries with '-'
+                    filtered_comments = df['Elaborate on how your difficulty affects you at work?'][~df['Elaborate on how your difficulty affects you at work?'].isin([np.nan, '-', ''])]
+                    joined_text = ' '.join(filtered_comments)
+                    Difficulty_affect_Analysis = summarize_text(joined_text)
+                    st.session_state['difficulty_affect_analysis_results']['Elaborate on how your difficulty affects you at work?'] = Difficulty_affect_Analysis
+                    
+
+                    st.markdown("### Summary of How Individual's Difficulty Affects Them at Work")
+                    st.markdown("The bullet points below are a concise summary of the key points made by individuals regarding how their difficulty affects them at work.")
+                    display_summary(st.session_state['difficulty_affect_analysis_results']['Elaborate on how your difficulty affects you at work?'])
+
+                  else:
+                    st.markdown("### Summary of How Individual's Difficulty Affects Them at Work")
+                    st.markdown("The bullet points below are a concise summary of the key points made by individuals regarding how their difficulty affects them at work.")
+                    display_summary(st.session_state['difficulty_affect_analysis_results']['Elaborate on how your difficulty affects you at work?'])
+                #--------------------------------------------------------------------------------------------------------------------------------------------------
                 #--------------------------------------------------------------------------------------------------------------------------------------------------
                 #--------------------------------------------------------------------------------------------------------------------------------------------------
                 # Analyze work adaptation for each difficulty
@@ -1669,7 +1912,7 @@ elif page == "Demographic Analysis":
             ######################################################################
             #            Service Length amongst Disableld Employees              #
             ######################################################################
-            elif visualization_key == "Service Length amongst Disableld Employees":
+            elif visualization_key == "Service Length amongst Disabled Employees":
 
                 # Create a bar chart with Plotly
                 fig = px.bar(df, x='Service_Length', color='Has_Disability', barmode='group')
@@ -1727,8 +1970,17 @@ elif page == "Demographic Analysis":
                     flex_work_df = pd.DataFrame.from_dict(flex_work_data, orient='index', columns=['Percentage']).reset_index()
                     flex_work_df.columns = ['Flexible Working Option', 'Percentage']
 
+                    # fig = px.bar(flex_work_df, x='Percentage', y='Flexible Working Option', orientation='h',
+                    #             title=f'Use of Flexible Working Options by Employees with {selected_group}')
                     fig = px.bar(flex_work_df, x='Percentage', y='Flexible Working Option', orientation='h',
-                                title=f'Use of Flexible Working Options by Employees with {selected_group}')
+                    title=f'Use of Flexible Working Options by Employees with {selected_group}',
+                    text='Percentage',  # Display percentage value on bars
+                    labels={'Percentage'})  # Label for the percentage axis
+
+                    # Customize layout for displaying percentage outside of bars
+                    fig.update_traces(textposition='outside', texttemplate='%{text:.2f}%')
+                    fig.update_layout(uniformtext_minsize=8, uniformtext_mode='hide')
+
 
                     return fig
 
@@ -1752,24 +2004,30 @@ elif page == "Demographic Analysis":
 
                 for gender in genders:
                     data = []
+                    text_values = []  # List to store text values for displaying percentages
                     for option in flexible_options:
                         # Filter DataFrame by gender and calculate percentage for each option
                         gender_df = df[df['Gender'] == gender]
                         count_yes = gender_df[option].value_counts().get('Yes', 0)
                         percent_yes = (count_yes / len(gender_df)) * 100
                         data.append(percent_yes)
+                        text_values.append(f'{percent_yes:.2f}%')  # Format percentage with two decimal places
 
                     all_data.append(go.Bar(
                         name=gender,
                         y=flexible_options,
                         x=data,
-                        orientation='h'  # Specify horizontal bar orientation
+                        orientation='h',  # Specify horizontal bar orientation
+                        text=text_values,  # Specify text values for displaying percentages
+                        textposition='outside',
+                        # textposition='auto',  # Automatically position text
+                        insidetextanchor='start'  # Anchor text to the start of bars
                     ))
 
-                # Create the stacked bar chart
+                # Create the grouped bar chart
                 fig = go.Figure(data=all_data)
                 fig.update_layout(
-                    barmode='stack',
+                    barmode='group',  # Display bars beside each other
                     title='Distribution of Flexible Working Options by Gender',
                     xaxis={'title': 'Percentage'},
                     yaxis={'title': 'Flexible Working Option'},
@@ -1908,48 +2166,49 @@ elif page == "Social Mobility Analysis":
         # df_disabilities = st.session_state['df_disabilities']
         # df_LGBT = st.session_state['df_LGBT']
         # df_mental_health = st.session_state['df_mental_health']
-        # Check for each sub-dataframe
-        if 'df_caring_responsibilities' in st.session_state:
-            df_caring_responsibilities = st.session_state['df_caring_responsibilities']
-        else:
-            st.error("Data for caring responsibilities not found. Please run the Data Preprocessing step first.")
-
-       # Check for each sub-dataframe
-        if 'df_religious_beliefs' in st.session_state:
-            df_religious_beliefs = st.session_state['df_religious_beliefs']
-        else:
-            st.error("Data for df_religious_beliefs not found. Please run the Data Preprocessing step first.")
 
         # Check for each sub-dataframe
-        if 'df_minority_ethnicity' in st.session_state:
-            df_minority_ethnicity = st.session_state['df_minority_ethnicity']
-        else:
-            st.error("Data for caring df_minority_ethnicity not found. Please run the Data Preprocessing step first.")
+        if 'Has_Caring_Responsibility' in df.columns:
+          if 'df_caring_responsibilities' in st.session_state:
+              df_caring_responsibilities = st.session_state['df_caring_responsibilities']
+          else:
+              st.error("Data for caring responsibilities not found. Please run the Data Preprocessing step first.")
 
-        # Check for each sub-dataframe
-        if 'df_women' in st.session_state:
-            df_women = st.session_state['df_women']
-        else:
-            st.error("Data for df_women not found. Please run the Data Preprocessing step first.")
+        if 'Religion' in df.columns:
+          if 'df_religious_beliefs' in st.session_state:
+              df_religious_beliefs = st.session_state['df_religious_beliefs']
+          else:
+              st.error("Data for df_religious_beliefs not found. Please run the Data Preprocessing step first.")
 
-        # Check for each sub-dataframe
-        if 'df_disabilities' in st.session_state:
-            df_disabilities = st.session_state['df_disabilities']
-        else:
-            st.error("Data for df_disabilities not found. Please run the Data Preprocessing step first.")
+        if 'Ethnicity' in df.columns:
+          if 'df_minority_ethnicity' in st.session_state:
+              df_minority_ethnicity = st.session_state['df_minority_ethnicity']
+          else:
+              st.error("Data for df_minority_ethnicity not found. Please run the Data Preprocessing step first.")
 
-        # Check for each sub-dataframe
-        if 'df_LGBT' in st.session_state:
-            df_LGBT = st.session_state['df_LGBT']
-        else:
-            st.error("Data for df_LGBT not found. Please run the Data Preprocessing step first.")
+        if 'Gender' in df.columns:
+          if 'df_women' in st.session_state:
+              df_women = st.session_state['df_women']
+          else:
+              st.error("Data for df_women not found. Please run the Data Preprocessing step first.")
 
-        # Check for each sub-dataframe
-        if 'df_mental_health' in st.session_state:
-            df_mental_health = st.session_state['df_mental_health']
-        else:
-            st.error("Data for df_mental_health not found. Please run the Data Preprocessing step first.")
+        if 'Has_Disability' in df.columns:
+          if 'df_disabilities' in st.session_state:
+              df_disabilities = st.session_state['df_disabilities']
+          else:
+              st.error("Data for df_disabilities not found. Please run the Data Preprocessing step first.")
 
+        if 'LGBT' in df.columns:
+          if 'df_LGBT' in st.session_state:
+              df_LGBT = st.session_state['df_LGBT']
+          else:
+              st.error("Data for df_LGBT not found. Please run the Data Preprocessing step first.")
+
+        if 'has_mental_health' in df.columns:
+          if 'df_mental_health' in st.session_state:
+              df_mental_health = st.session_state['df_mental_health']
+          else:
+              st.error("Data for df_mental_health not found. Please run the Data Preprocessing step first.")
 
         ######################################################################
         #              Parents' University Attendance by Age 18              #
@@ -2128,40 +2387,49 @@ elif page == "Inclusion Analysis":
             st.error("Data for caring responsibilities not found. Please run the Data Preprocessing step first.")
 
        # Check for each sub-dataframe
-        if 'df_religious_beliefs' in st.session_state:
-            df_religious_beliefs = st.session_state['df_religious_beliefs']
-        else:
-            st.error("Data for df_religious_beliefs not found. Please run the Data Preprocessing step first.")
+        if 'Has_Caring_Responsibility' in df.columns:
+          if 'df_caring_responsibilities' in st.session_state:
+              df_caring_responsibilities = st.session_state['df_caring_responsibilities']
+          else:
+              st.error("Data for caring responsibilities not found. Please run the Data Preprocessing step first.")
 
-        # Check for each sub-dataframe
-        if 'df_minority_ethnicity' in st.session_state:
-            df_minority_ethnicity = st.session_state['df_minority_ethnicity']
-        else:
-            st.error("Data for caring df_minority_ethnicity not found. Please run the Data Preprocessing step first.")
+        if 'Religion' in df.columns:
+          if 'df_religious_beliefs' in st.session_state:
+              df_religious_beliefs = st.session_state['df_religious_beliefs']
+          else:
+              st.error("Data for df_religious_beliefs not found. Please run the Data Preprocessing step first.")
 
-        # Check for each sub-dataframe
-        if 'df_women' in st.session_state:
-            df_women = st.session_state['df_women']
-        else:
-            st.error("Data for df_women not found. Please run the Data Preprocessing step first.")
+        if 'Ethnicity' in df.columns:
+          if 'df_minority_ethnicity' in st.session_state:
+              df_minority_ethnicity = st.session_state['df_minority_ethnicity']
+          else:
+              st.error("Data for df_minority_ethnicity not found. Please run the Data Preprocessing step first.")
 
-        # Check for each sub-dataframe
-        if 'df_disabilities' in st.session_state:
-            df_disabilities = st.session_state['df_disabilities']
-        else:
-            st.error("Data for df_disabilities not found. Please run the Data Preprocessing step first.")
+        if 'Gender' in df.columns:
+          if 'df_women' in st.session_state:
+              df_women = st.session_state['df_women']
+          else:
+              st.error("Data for df_women not found. Please run the Data Preprocessing step first.")
 
-        # Check for each sub-dataframe
-        if 'df_LGBT' in st.session_state:
-            df_LGBT = st.session_state['df_LGBT']
-        else:
-            st.error("Data for df_LGBT not found. Please run the Data Preprocessing step first.")
+        if 'Has_Disability' in df.columns:
+          if 'df_disabilities' in st.session_state:
+              df_disabilities = st.session_state['df_disabilities']
+          else:
+              st.error("Data for df_disabilities not found. Please run the Data Preprocessing step first.")
 
-        # Check for each sub-dataframe
-        if 'df_mental_health' in st.session_state:
-            df_mental_health = st.session_state['df_mental_health']
-        else:
-            st.error("Data for df_mental_health not found. Please run the Data Preprocessing step first.")
+        if 'LGBT' in df.columns:
+          if 'df_LGBT' in st.session_state:
+              df_LGBT = st.session_state['df_LGBT']
+          else:
+              st.error("Data for df_LGBT not found. Please run the Data Preprocessing step first.")
+
+        if 'has_mental_health' in df.columns:
+          if 'df_mental_health' in st.session_state:
+              df_mental_health = st.session_state['df_mental_health']
+          else:
+              st.error("Data for df_mental_health not found. Please run the Data Preprocessing step first.")
+
+
 
         # Dictionary of groups and their corresponding dataframes
         group_dfs = {
@@ -3200,7 +3468,7 @@ elif page == "Text Analysis":
             st.markdown(f"**Topic: {topic}**")
             st.markdown("Examples:")
             st.write(representative_docs)
-            st.markdown("#### Key Insights in this cluster:")
+            st.markdown("Key Insights in this cluster:")
 
             # Use regex to find bullet points
             bullet_points = re.split(r'\n*[-*]\s|\n*\d+\.\s|\n+', summary)
@@ -3390,7 +3658,7 @@ elif page == "Text Analysis":
           ##########################################################################################
           #                                 Text Summarization                                     #
           ##########################################################################################
-          model = "meta-llama/Llama-2-13b-chat-hf"
+          model = "meta-llama/Llama-2-7b-chat-hf"
 
           torch.cuda.empty_cache()
 
