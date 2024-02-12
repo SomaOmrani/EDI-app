@@ -419,20 +419,20 @@ if page == "Questions":
                 df = df.applymap(lambda x: x.replace('artex', 'this organisation') if isinstance(x, str) else x)
                 # Select string columns
                 # string_columns = df.select_dtypes(include=['object']).columns
-                string_columns = [
-                    'Self_Describe_Gender', 'Self_Describe_Sexual_Orientation', 'Difficulty_Comment', 'Flexible_Working_Comments', 
-                    'Advice_for_Senior_Leadership_Team_re_EDI', 'Religion_Not_in_List', 'Ethnicity_Not_in_List', 'National_Identity__Not_in_List',
-                    'What other comments would you like to make in relation to D&I at this organisation?',
-                    'What ONE thing do you think the business should be doing to recruit a diverse range of employees?',
-                    'What ONE thing do you think the business does well in terms of creating a diverse and inclusive workplace?',
-                    'What ONE thing do you think the business should be doing to create a work environment where everyone is respected and can thrive regardless of personal circumstances or background?',
-                    'In what ways can this organisation ensure that everyone is treated fairly and can thrive?', ## Is it the same as above question??? 
-                    'We want to support employees in setting up networks for our people if there is demand. What ERG would you be interested in us establishing?'
-                    ]
-                df[string_columns] = df[string_columns].astype(str)
-                # Apply the anonymization functions to string columns
-                df[string_columns] = df[string_columns].applymap(anonymize_text)
-                df[string_columns] = df[string_columns].applymap(replace_named_entities)
+                # string_columns = [
+                #     'Self_Describe_Gender', 'Self_Describe_Sexual_Orientation', 'Difficulty_Comment', 'Flexible_Working_Comments', 
+                #     'Advice_for_Senior_Leadership_Team_re_EDI', 'Religion_Not_in_List', 'Ethnicity_Not_in_List', 'National_Identity__Not_in_List',
+                #     'What other comments would you like to make in relation to D&I at this organisation?',
+                #     'What ONE thing do you think the business should be doing to recruit a diverse range of employees?',
+                #     'What ONE thing do you think the business does well in terms of creating a diverse and inclusive workplace?',
+                #     'What ONE thing do you think the business should be doing to create a work environment where everyone is respected and can thrive regardless of personal circumstances or background?',
+                #     'In what ways can this organisation ensure that everyone is treated fairly and can thrive?', ## Is it the same as above question??? 
+                #     'We want to support employees in setting up networks for our people if there is demand. What ERG would you be interested in us establishing?'
+                #     ]
+                # df[string_columns] = df[string_columns].astype(str)
+                # # Apply the anonymization functions to string columns
+                # df[string_columns] = df[string_columns].applymap(anonymize_text)
+                # df[string_columns] = df[string_columns].applymap(replace_named_entities)
 
                 # df = df.applymap(anonymize_text)
                 # df = df.applymap(replace_named_entities)
