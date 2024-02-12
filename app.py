@@ -202,7 +202,6 @@ rename_columns = {'How long have you worked at the organization?': 'Service_Leng
                 'Do you have difficulty using your hands and fingers?': 'Picking_Up_Small_Objects_Dificulty',
                 'Elaborate on how your difficulty above affect you at work': 'Difficulty_Comment',
                 'Do you consider yourself to be neuro-divergent':'Do you consider yourself to be neuro-divergent?',
-                'Can you elaborate on how your difficulty with certain tasks affects you at work?': 'Elaborate on how your difficulty affects you at work?',
                 'Is your work schedule or work tasks arranged to account for difficulties you have in doing certain activities?': 'Work_Adaptation_for_Difficulties',
                 'Has your workplace been modified to account for difficulties you have in doing certain activities?': 'Workplace_Modification_for_Difficulties',
                 'Would you describe your national identity as English?': 'English',
@@ -312,7 +311,6 @@ standard_questions = ['How long have you worked at the organization?',
                     'Do you have difficulty using your hands and fingers?',
                     'Elaborate on how your difficulty above affect you at work',
                     'Do you consider yourself to be neuro-divergent',
-                    'Can you elaborate on how your difficulty with certain tasks affects you at work?',
                     'Is your work schedule or work tasks arranged to account for difficulties you have in doing certain activities?',
                     'Has your workplace been modified to account for difficulties you have in doing certain activities?',
                     'Would you describe your national identity as English?',
@@ -420,7 +418,18 @@ if page == "Questions":
                 df = df.applymap(lambda x: x.replace('Artex', 'this organisation') if isinstance(x, str) else x)
                 df = df.applymap(lambda x: x.replace('artex', 'this organisation') if isinstance(x, str) else x)
                 # Select string columns
-                string_columns = df.select_dtypes(include=['object']).columns
+                # string_columns = df.select_dtypes(include=['object']).columns
+                string_columns = [
+                    'Self_Describe_Gender', 'Self_Describe_Sexual_Orientation', 'Difficulty_Comment', 'Flexible_Working_Comments', 
+                    'Advice_for_Senior_Leadership_Team_re_EDI', 'Religion_Not_in_List', 'Ethnicity_Not_in_List', 'National_Identity__Not_in_List',
+                    'What other comments would you like to make in relation to D&I at this organisation?',
+                    'What ONE thing do you think the business should be doing to recruit a diverse range of employees?',
+                    'What ONE thing do you think the business does well in terms of creating a diverse and inclusive workplace?',
+                    'What ONE thing do you think the business should be doing to create a work environment where everyone is respected and can thrive regardless of personal circumstances or background?',
+                    'In what ways can this organisation ensure that everyone is treated fairly and can thrive?', ## Is it the same as above question??? 
+                    'We want to support employees in setting up networks for our people if there is demand. What ERG would you be interested in us establishing?'
+                    ]
+                df[string_columns] = df[string_columns].astype(str)
                 # Apply the anonymization functions to string columns
                 df[string_columns] = df[string_columns].applymap(anonymize_text)
                 df[string_columns] = df[string_columns].applymap(replace_named_entities)
@@ -541,8 +550,7 @@ if page == "Questions":
                     for col in columns_to_fillna:
                         if col in df.columns:
                             df[col].fillna('No response', inplace=True)
-                    st.write(df.isnull().sum())
-                    
+                                     
 
                 # For simplicity, let's assume that columns with less than 20 unique values can be treated as categorical
                 #categorical_columns = [col for col in df.columns if df[col].nunique() < 20]#####################################################source of error for  q32
@@ -764,7 +772,7 @@ if page == "Questions":
 
 
 
-    if st.checkbox('Tick the box below if you have already processed this dataset.'):
+    if st.checkbox('Tick this box if you have already processed this dataset.'):
         if 'df' in st.session_state:  # Check if the main DataFrame is in session state
                 df = st.session_state['df']  # Retrieve the main DataFrame from session state
                 if df.columns.tolist() in rename_columns.values():
@@ -1448,27 +1456,27 @@ elif page == "Demographic Analysis":
                     display_summary(st.session_state['difficulty_analysis_results']['Difficulty_Comment'])
                 #--------------------------------------------------------------------------------------------------------------------------------------------------
                 
-                if 'Elaborate on how your difficulty affects you at work?' in df.columns:
+                # if 'Elaborate on how your difficulty affects you at work?' in df.columns:
 
-                  # Initialize a list in session state for storing analysis results if it doesn't exist
-                  if 'difficulty_affect_analysis_results' not in st.session_state:
-                    st.session_state['difficulty_affect_analysis_results'] = {}
+                #   # Initialize a list in session state for storing analysis results if it doesn't exist
+                #   if 'difficulty_affect_analysis_results' not in st.session_state:
+                #     st.session_state['difficulty_affect_analysis_results'] = {}
 
-                    # Filter out NaN values and entries with '-'
-                    filtered_comments = df['Elaborate on how your difficulty affects you at work?'][~df['Elaborate on how your difficulty affects you at work?'].isin([np.nan, '-', ''])]
-                    joined_text = ' '.join(filtered_comments)
-                    Difficulty_affect_Analysis = summarize_text(joined_text)
-                    st.session_state['difficulty_affect_analysis_results']['Elaborate on how your difficulty affects you at work?'] = Difficulty_affect_Analysis
+                #     # Filter out NaN values and entries with '-'
+                #     filtered_comments = df['Elaborate on how your difficulty affects you at work?'][~df['Elaborate on how your difficulty affects you at work?'].isin([np.nan, '-', ''])]
+                #     joined_text = ' '.join(filtered_comments)
+                #     Difficulty_affect_Analysis = summarize_text(joined_text)
+                #     st.session_state['difficulty_affect_analysis_results']['Elaborate on how your difficulty affects you at work?'] = Difficulty_affect_Analysis
                     
 
-                    st.markdown("### Summary of How Individual's Difficulty Affects Them at Work")
-                    st.markdown("The bullet points below are a concise summary of the key points made by individuals regarding how their difficulty affects them at work.")
-                    display_summary(st.session_state['difficulty_affect_analysis_results']['Elaborate on how your difficulty affects you at work?'])
+                #     st.markdown("### Summary of How Individual's Difficulty Affects Them at Work")
+                #     st.markdown("The bullet points below are a concise summary of the key points made by individuals regarding how their difficulty affects them at work.")
+                #     display_summary(st.session_state['difficulty_affect_analysis_results']['Elaborate on how your difficulty affects you at work?'])
 
-                  else:
-                    st.markdown("### Summary of How Individual's Difficulty Affects Them at Work")
-                    st.markdown("The bullet points below are a concise summary of the key points made by individuals regarding how their difficulty affects them at work.")
-                    display_summary(st.session_state['difficulty_affect_analysis_results']['Elaborate on how your difficulty affects you at work?'])
+                #   else:
+                #     st.markdown("### Summary of How Individual's Difficulty Affects Them at Work")
+                    # st.markdown("The bullet points below are a concise summary of the key points made by individuals regarding how their difficulty affects them at work.")
+                    # display_summary(st.session_state['difficulty_affect_analysis_results']['Elaborate on how your difficulty affects you at work?'])
                 #--------------------------------------------------------------------------------------------------------------------------------------------------
                 #--------------------------------------------------------------------------------------------------------------------------------------------------
                 #--------------------------------------------------------------------------------------------------------------------------------------------------
