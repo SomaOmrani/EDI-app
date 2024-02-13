@@ -3485,6 +3485,9 @@ elif page == "Inclusion Analysis":
 elif page == "Text Analysis":
     st.header("Text Analysis Results")
     st.subheader("Please choose the open-ended question that you want to analyze.")
+    # Check if data is loaded
+    if 'df' in st.session_state and st.session_state['df'] is not None:
+      df = st.session_state['df']
     text_columns = ['What other comments would you like to make in relation to D&I at this organisation?',
                     'What ONE thing do you think the business should be doing to recruit a diverse range of employees?',
                     'What ONE thing do you think the business does well in terms of creating a diverse and inclusive workplace?',
@@ -3549,9 +3552,9 @@ elif page == "Text Analysis":
     
     
     
-        # Check if data is loaded
-        if 'df' in st.session_state and st.session_state['df'] is not None:
-          df = st.session_state['df']
+        # # Check if data is loaded
+        # if 'df' in st.session_state and st.session_state['df'] is not None:
+        #   df = st.session_state['df']
     
           # Initialize a dictionary in session state for storing analysis results if it doesn't exist
           if 'analysis_results' not in st.session_state:
