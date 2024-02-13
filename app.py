@@ -120,49 +120,49 @@ if 'df' not in st.session_state:
 page = st.sidebar.selectbox("Choose a page", ["Questions", "Demographic Analysis", "Social Mobility Analysis", "Inclusion Analysis", "Text Analysis"])
 
 
-# Initialize the Presidio Analyzer and Anonymizer engines
-analyzer = AnalyzerEngine()
-anonymizer = AnonymizerEngine()
+# # Initialize the Presidio Analyzer and Anonymizer engines
+# analyzer = AnalyzerEngine()
+# anonymizer = AnonymizerEngine()
 
-def anonymize_text(text):
-    if isinstance(text, str):  # Check if text is a string
-        # Use the analyzer to find personal information in the text
-        analyzer_results = analyzer.analyze(text=text, language='en')
+# def anonymize_text(text):
+#     if isinstance(text, str):  # Check if text is a string
+#         # Use the analyzer to find personal information in the text
+#         analyzer_results = analyzer.analyze(text=text, language='en')
         
-        # Use the anonymizer to anonymize the text based on the analyzer results
-        anonymized_result = anonymizer.anonymize(
-            text=text,
-            analyzer_results=analyzer_results,
-            operators={"DEFAULT": OperatorConfig("replace", {"new_value": "<ANONYMIZED>"})}
-        )
+#         # Use the anonymizer to anonymize the text based on the analyzer results
+#         anonymized_result = anonymizer.anonymize(
+#             text=text,
+#             analyzer_results=analyzer_results,
+#             operators={"DEFAULT": OperatorConfig("replace", {"new_value": "<ANONYMIZED>"})}
+#         )
         
-        return anonymized_result.text
-    else:
-        return text
+#         return anonymized_result.text
+#     else:
+#         return text
 
 
-# Load a pre-trained spaCy model
-nlp = spacy.load("en_core_web_lg")
+# # Load a pre-trained spaCy model
+# nlp = spacy.load("en_core_web_lg")
 
-def replace_named_entities(text, replace_with="[REPLACED]"):
-    if isinstance(text, str):  # Check if text is a string
-        # Process the text with the spaCy model
-        doc = nlp(text)
+# def replace_named_entities(text, replace_with="[REPLACED]"):
+#     if isinstance(text, str):  # Check if text is a string
+#         # Process the text with the spaCy model
+#         doc = nlp(text)
         
-        # Replace named entities with the specified placeholder
-        replaced_text = []
-        for token in doc:
-            if token.ent_type_ != "":
-                replaced_text.append(replace_with)
-            else:
-                replaced_text.append(token.text)
+#         # Replace named entities with the specified placeholder
+#         replaced_text = []
+#         for token in doc:
+#             if token.ent_type_ != "":
+#                 replaced_text.append(replace_with)
+#             else:
+#                 replaced_text.append(token.text)
         
-        # Join the tokens back into a string
-        replaced_text = " ".join(replaced_text)
+#         # Join the tokens back into a string
+#         replaced_text = " ".join(replaced_text)
         
-        return replaced_text
-    else:
-        return text
+#         return replaced_text
+#     else:
+#         return text
 
 
 
@@ -460,12 +460,13 @@ if page == "Questions":
                         new_column_names.append(new_column_name)
                         new_column_names[idx] = f"{previous_question}: {df.iloc[0, idx]}"
 
+                
+                if "Unnamed"  in df.columns:
+                # Drop the first two rows that were used to identify the column names
+                    df = df.drop(df.index[0:2]).reset_index(drop=True)
+
                 # Now assign the new column names to the DataFrame
                 df.columns = new_column_names
-                # st.write(df.columns)
-
-                # Drop the first two rows that were used to identify the column names
-                df = df.drop(df.index[0:2]).reset_index(drop=True)
 
                 st.session_state['df'] = df
 
@@ -550,6 +551,15 @@ if page == "Questions":
                     for col in columns_to_fillna:
                         if col in df.columns:
                             df[col].fillna('No response', inplace=True)
+
+                    string_columns = []
+                    for item in columns_to_fillna:
+                        if item in df.columns:
+                            string_columns.append(item)
+                    df[string_columns] = df[string_columns].astype(str)
+                    # Apply the anonymization functions to string columns
+                    df[string_columns] = df[string_columns].applymap(anonymize_text)
+                    df[string_columns] = df[string_columns].applymap(replace_named_entities)
                                      
 
                 # For simplicity, let's assume that columns with less than 20 unique values can be treated as categorical
@@ -762,9 +772,9 @@ if page == "Questions":
                     df_caring_responsibilities = df[df['Has_Caring_Responsibility'] == 'Yes']
                     st.session_state['df_caring_responsibilities'] = df_caring_responsibilities
                 #**********************************************************************************************
-                if st.checkbox('Show processed data'):
-                        # st.write(df.head())
-                        st.dataframe(df) 
+                # if st.checkbox('Show processed data'):
+                #         # st.write(df.head())
+                #         st.dataframe(df) 
                 # Update the DataFrame in session state
                 st.session_state['df'] = df
 
@@ -2494,7 +2504,9 @@ elif page == "Inclusion Analysis":
         # Filter options based on the columns present in the DataFrame
         # filtered_question = {question for question in questions if question in df.columns}
         filtered_question = {question for question in questions if question in df.columns}##########################The one in COLAB doesn't have this
-
+        if all(item in df.columns for item in ['EDI_Priority_Senior_Leadership', 'EDI_Priority_Line_Manager', 'EDI_Priority_Peers', 'EDI_Priority_YourSelf']):
+            filtered_question.add('In your opinion, how much of a priority is diversity and inclusion in the business to')
+            
         # Create the dropdown box
         selected_question = st.selectbox("Which question are you interested in?", filtered_question)
 
