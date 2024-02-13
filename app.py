@@ -417,6 +417,24 @@ if page == "Questions":
                 # Additional transformations as per your notebook
                 df = df.applymap(lambda x: x.replace('Artex', 'this organisation') if isinstance(x, str) else x)
                 df = df.applymap(lambda x: x.replace('artex', 'this organisation') if isinstance(x, str) else x)
+
+                # Replacing 'Artex'/'artex' in column names
+                df.columns = [col.replace('Plan', 'this organization').replace('plan', 'this organization') for col in df.columns]
+                # Additional transformations as per your notebook
+                df = df.applymap(lambda x: x.replace('Plan', 'this organisation') if isinstance(x, str) else x)
+                df = df.applymap(lambda x: x.replace('plan', 'this organisation') if isinstance(x, str) else x)
+
+                # Replacing 'Artex'/'artex' in column names
+                df.columns = [col.replace('Plan UK', 'this organization').replace('plan uk', 'this organization') for col in df.columns]
+                # Additional transformations as per your notebook
+                df = df.applymap(lambda x: x.replace('Plan UK', 'this organisation') if isinstance(x, str) else x)
+                df = df.applymap(lambda x: x.replace('plan uk', 'this organisation') if isinstance(x, str) else x)
+
+                # Replacing 'Artex'/'artex' in column names
+                df.columns = [col.replace('Plan International', 'this organization').replace('plan international', 'this organization') for col in df.columns]
+                # Additional transformations as per your notebook
+                df = df.applymap(lambda x: x.replace('Plan International', 'this organisation') if isinstance(x, str) else x)
+                df = df.applymap(lambda x: x.replace('plan international', 'this organisation') if isinstance(x, str) else x)
                 # Select string columns
                 # string_columns = df.select_dtypes(include=['object']).columns
                 # string_columns = [
