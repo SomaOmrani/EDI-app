@@ -582,7 +582,7 @@ if page == "Questions":
 
                     def average_salary(salary_range):
                         if 'prefer not to say' in salary_range.lower():
-                            return None
+                            return 0
                         if 'or more' in salary_range.lower():
                             # If the range says 'or more', use the single value as the average
                             min_salary = salary_range.lower().replace('£', '').replace(' or more', '').replace(',', '')
@@ -670,7 +670,7 @@ if page == "Questions":
 
                 # Function to convert a DataFrame to a CSV download link
                 def convert_df_to_csv_download_link(df, filename):
-                    csv = df.to_csv(index=False)
+                    csv = df.to_csv(index=False, encoding='utf-8-sig')
                     b64 = base64.b64encode(csv.encode()).decode()
                     href = f'<a href="data:file/csv;base64,{b64}" download="{filename}" target="_blank">Download {filename}</a>'
                     return href
@@ -752,7 +752,9 @@ if page == "Questions":
 
                 # Filter the dataframe for women respondents
                 if 'Gender' in df.columns:
-                    df_women = df[df['Gender'] == 'Woman']
+                    # df_women = df[df['Gender'] == 'Woman']
+                    # Filter rows where the gender is either 'Woman' or 'Female'
+                    df_women = df[df['Gender'].isin(['Woman', 'Female'])]
                     st.session_state['df_women'] = df_women
 
 
@@ -786,7 +788,13 @@ if page == "Questions":
         if 'df' in st.session_state:  # Check if the main DataFrame is in session state
                 df = st.session_state['df']  # Retrieve the main DataFrame from session state
                 # if df.columns.tolist() in rename_columns.values():
-                if all(col in rename_columns.values() for col in df.columns):
+                # if all(col in rename_columns.values() for col in df.columns):
+                # if 'Average_Salary' in df.columns:
+                #     df_drop_Avaerage_Salary = df.drop('Average_Salary', axis=1)
+                # else:
+                #     df_drop_Avaerage_Salary = df
+                df_drop_Avaerage_Salary = df[df.columns.intersection(rename_columns.values())]
+                if all(col in rename_columns.values() for col in df_drop_Avaerage_Salary.columns):
 
                     #******************************** New created sub dataframes *************************************#
                     # Define the columns related to mental health
@@ -860,7 +868,9 @@ if page == "Questions":
 
                     # Filter the dataframe for women respondents
                     if 'Gender' in df.columns:
-                        df_women = df[df['Gender'] == 'Woman']
+                        # df_women = df[df['Gender'] == 'Woman']
+                        # Filter rows where the gender is either 'Woman' or 'Female'
+                        df_women = df[df['Gender'].isin(['Woman', 'Female'])]
                         st.session_state['df_women'] = df_women
 
 
@@ -920,7 +930,7 @@ elif page == "Demographic Analysis":
                                             'Remote_Working', 'Condensed_Hours', 'School_Hours', 'Term_Time', 'None_of_the_above', 'PNTS'],
             'Age Distribution': ['Age'],
             'Generation Distribution': ['Generation'],
-            'Gender and gender identity': ['Gender', 'Gender_Identification_Same_as_Birth'],
+            'Gender and gender identity': ['Gender'],
             'Disability and long-term health conditions': ['Disability_or_Long_Term_Health_Condition'],
             'Disability and long-term health conditions': ['Seeing_Dificulty', 'Hearing_Dificulty', 'Walking_Dificulty', 'Remembering_Dificulty', 'SelfCare_Dificulty',
                                                             'Communicating_Dificulty', 'Raising_Water/Soda_Bottle_Dificulty', 'Picking_Up_Small_Objects_Dificulty'],
@@ -938,7 +948,7 @@ elif page == "Demographic Analysis":
                                                                                                                             'Job_Share', 'Flexibility_with_start_and_finish_times', 'Working_from_home', 'Flexible_Hours_Based_on_Output',
                                                                                                                             'Remote_Working', 'Condensed_Hours', 'School_Hours', 'Term_Time', 'None_of_the_above', 'PNTS'],
             'Mental Health Status Distribution by Department': ['Department', 'has_mental_health'],
-            'Optional Filtering': ['Age'], ##################### Age entered randomly as there's many columns for this one. Enter a proper one ###########################
+            'Optional Filtering': ['Service_Length'], ##################### Age entered randomly as there's many columns for this one. Enter a proper one ###########################
             #'Considering Leave Due to Respect/Belonging in Next 6 Months': ['Considering_Leaveing_in_Next_6_Months']
         }
 
@@ -956,48 +966,60 @@ elif page == "Demographic Analysis":
             default=next(iter(filtered_options.keys()), None) # Default to the first available option or None
         )
 
+        # Dictionary of groups and their corresponding dataframes
+        group_dfs = {
+            'All Employees': df
+        }
         # Check for each sub-dataframe
         if 'Has_Caring_Responsibility' in df.columns:
           if 'df_caring_responsibilities' in st.session_state:
               df_caring_responsibilities = st.session_state['df_caring_responsibilities']
+              group_dfs['Caring Responsibilities'] = df_caring_responsibilities
           else:
               st.error("Data for caring responsibilities not found. Please run the Data Preprocessing step first.")
 
         if 'Religion' in df.columns:
           if 'df_religious_beliefs' in st.session_state:
               df_religious_beliefs = st.session_state['df_religious_beliefs']
+              group_dfs['Religious Beliefs'] = df_religious_beliefs
           else:
               st.error("Data for df_religious_beliefs not found. Please run the Data Preprocessing step first.")
 
         if 'Ethnicity' in df.columns:
           if 'df_minority_ethnicity' in st.session_state:
               df_minority_ethnicity = st.session_state['df_minority_ethnicity']
+              group_dfs['Minority Ethnicity'] = df_minority_ethnicity
           else:
               st.error("Data for df_minority_ethnicity not found. Please run the Data Preprocessing step first.")
 
         if 'Gender' in df.columns:
           if 'df_women' in st.session_state:
               df_women = st.session_state['df_women']
+              group_dfs['Women'] = df_women
           else:
               st.error("Data for df_women not found. Please run the Data Preprocessing step first.")
 
         if 'Has_Disability' in df.columns:
           if 'df_disabilities' in st.session_state:
               df_disabilities = st.session_state['df_disabilities']
+              group_dfs['Disabilities'] = df_disabilities
           else:
               st.error("Data for df_disabilities not found. Please run the Data Preprocessing step first.")
 
         if 'LGBT' in df.columns:
           if 'df_LGBT' in st.session_state:
               df_LGBT = st.session_state['df_LGBT']
+              group_dfs['LGBT'] = df_LGBT
           else:
               st.error("Data for df_LGBT not found. Please run the Data Preprocessing step first.")
 
         if 'has_mental_health' in df.columns:
           if 'df_mental_health' in st.session_state:
               df_mental_health = st.session_state['df_mental_health']
+              group_dfs['Mental Health'] = df_mental_health
           else:
               st.error("Data for df_mental_health not found. Please run the Data Preprocessing step first.")
+    
 
 
 
@@ -1737,71 +1759,71 @@ elif page == "Demographic Analysis":
                 #**************************Openness About Sexual Orientation****************************
                 contexts = ['At home', 'With your manager', 'With colleagues', 'At work generally', 'Prefer not to say']
                 columns = ['Sexual_Orientation_Openness_At_Home', 'Sexual_Orientation_Openness_With_Manager', 'Sexual_Orientation_Openness_With_Colleagues', 'Sexual_Orientation_Openness_At_Work_Generally', 'Sexual_Orientation_Openness_PNTS']
+                if all(item in df.columns for item in columns):       
+                    # Prepare the data: count the responses for each category in each context
+                    openness_data = {context: df[column].value_counts(normalize=True) * 100 for context, column in zip(contexts, columns)}
 
-                # Prepare the data: count the responses for each category in each context
-                openness_data = {context: df[column].value_counts(normalize=True) * 100 for context, column in zip(contexts, columns)}
+                    # Categories and colors
+                    categories = df['Sexual_Orientation_Openness_At_Home'].unique()  # Assuming all columns have the same unique values
+                    colors = ['blue', 'orange'] 
 
-                # Categories and colors
-                categories = df['Sexual_Orientation_Openness_At_Home'].unique()  # Assuming all columns have the same unique values
-                colors = ['blue']#, 'orange']
+                    # Creating the figure
+                    fig = go.Figure()
 
-                # Creating the figure
-                fig = go.Figure()
+                    # Add each category as a separate trace
+                    for category, color in zip(categories, colors):
+                        fig.add_trace(go.Bar(
+                            name=category,
+                            x=contexts,
+                            y=[openness_data[context].get(category, 0) for context in contexts],
+                            marker_color=color
+                        ))
 
-                # Add each category as a separate trace
-                for category, color in zip(categories, colors):
-                    fig.add_trace(go.Bar(
-                        name=category,
-                        x=contexts,
-                        y=[openness_data[context].get(category, 0) for context in contexts],
-                        marker_color=color
-                    ))
+                    # Update layout for stacked bar chart
+                    fig.update_layout(
+                        barmode='stack',
+                        title='Openness About Sexual Orientation',
+                        xaxis_title='Context',
+                        yaxis_title='Percentage',
+                        legend_title='Response'
+                    )
+                    # Show the figure
+                    st.plotly_chart(fig)
+                    
+                    #*********************LGBT+_Openness About Sexual Orientation*************************
+                    contexts = ['At home', 'With your manager', 'With colleagues', 'At work generally', 'Prefer not to say']
+                    columns = ['Sexual_Orientation_Openness_At_Home', 'Sexual_Orientation_Openness_With_Manager', 'Sexual_Orientation_Openness_With_Colleagues', 'Sexual_Orientation_Openness_At_Work_Generally', 'Sexual_Orientation_Openness_PNTS']
 
-                # Update layout for stacked bar chart
-                fig.update_layout(
-                    barmode='stack',
-                    title='Openness About Sexual Orientation',
-                    xaxis_title='Context',
-                    yaxis_title='Percentage',
-                    legend_title='Response'
-                )
-                # Show the figure
-                st.plotly_chart(fig)
+                    # Prepare the data: count the responses for each category in each context
+                    LGBT_openness_data = {context: df_LGBT[column].value_counts(normalize=True) * 100 for context, column in zip(contexts, columns)}
 
-                #*********************LGBT+_Openness About Sexual Orientation*************************
-                contexts = ['At home', 'With your manager', 'With colleagues', 'At work generally', 'Prefer not to say']
-                columns = ['Sexual_Orientation_Openness_At_Home', 'Sexual_Orientation_Openness_With_Manager', 'Sexual_Orientation_Openness_With_Colleagues', 'Sexual_Orientation_Openness_At_Work_Generally', 'Sexual_Orientation_Openness_PNTS']
+                    # Categories and colors
+                    categories = df_LGBT['Sexual_Orientation_Openness_At_Home'].unique()  # Assuming all columns have the same unique values
+                    colors = ['blue', 'orange'] 
 
-                # Prepare the data: count the responses for each category in each context
-                LGBT_openness_data = {context: df_LGBT[column].value_counts(normalize=True) * 100 for context, column in zip(contexts, columns)}
+                    # Creating the figure
+                    fig = go.Figure()
 
-                # Categories and colors
-                categories = df_LGBT['Sexual_Orientation_Openness_At_Home'].unique()  # Assuming all columns have the same unique values
-                colors = ['blue', 'orange']
+                    # Add each category as a separate trace
+                    for category, color in zip(categories, colors):
+                        fig.add_trace(go.Bar(
+                            name=category,
+                            x=contexts,
+                            y=[LGBT_openness_data[context].get(category, 0) for context in contexts],
+                            marker_color=color
+                        ))
 
-                # Creating the figure
-                fig = go.Figure()
+                    # Update layout for stacked bar chart
+                    fig.update_layout(
+                        barmode='stack',
+                        title='LGBT+_Openness About Sexual Orientation',
+                        xaxis_title='Context',
+                        yaxis_title='Percentage',
+                        legend_title='Response'
+                    )
 
-                # Add each category as a separate trace
-                for category, color in zip(categories, colors):
-                    fig.add_trace(go.Bar(
-                        name=category,
-                        x=contexts,
-                        y=[LGBT_openness_data[context].get(category, 0) for context in contexts],
-                        marker_color=color
-                    ))
-
-                # Update layout for stacked bar chart
-                fig.update_layout(
-                    barmode='stack',
-                    title='LGBT+_Openness About Sexual Orientation',
-                    xaxis_title='Context',
-                    yaxis_title='Percentage',
-                    legend_title='Response'
-                )
-
-                # Show the figure
-                st.plotly_chart(fig)
+                    # Show the figure
+                    st.plotly_chart(fig)
 
                 pass
             ######################################################################
@@ -2084,16 +2106,16 @@ elif page == "Demographic Analysis":
             #                         Other Filtering                            #
             ######################################################################
             elif visualization_key == "Optional Filtering":
-                 # Dictionary of groups and their corresponding dataframes
-                group_dfs = {
-                    'Women': df_women,
-                    'Minority Ethnicity': df_minority_ethnicity,
-                    'Disabilities': df_disabilities,
-                    'LGBT+': df_LGBT,
-                    'Caring Responsibilities': df_caring_responsibilities,
-                    'Religious Beliefs': df_religious_beliefs,
-                    'Mental Health': df_mental_health
-                }
+                #  # Dictionary of groups and their corresponding dataframes
+                # group_dfs = {
+                #     'Women': df_women,
+                #     'Minority Ethnicity': df_minority_ethnicity,
+                #     'Disabilities': df_disabilities,
+                #     'LGBT+': df_LGBT,
+                #     'Caring Responsibilities': df_caring_responsibilities,
+                #     'Religious Beliefs': df_religious_beliefs,
+                #     'Mental Health': df_mental_health
+                # }
 
                 # List of demographics
                 demographic = ['Service_Length', 'Age', 'Salary', 'Has_Disability', 'Organisational_Role', 'Gender', 'has_mental_health', 'Ethnicity', 'Sexual_Orientation', 'Has_Caring_Responsibility', 'Religion']
@@ -2403,67 +2425,71 @@ elif page == "Inclusion Analysis":
     # Ensure the data is loaded
     if 'df' in st.session_state and st.session_state['df'] is not None:
         df = st.session_state['df']
-        if 'df_caring_responsibilities' in st.session_state:
-            df_caring_responsibilities = st.session_state['df_caring_responsibilities']
-        else:
-            st.error("Data for caring responsibilities not found. Please run the Data Preprocessing step first.")
-
-       # Check for each sub-dataframe
+        # Dictionary of groups and their corresponding dataframes
+        group_dfs = {
+            'All Employees': df
+        }
+        # Check for each sub-dataframe
         if 'Has_Caring_Responsibility' in df.columns:
           if 'df_caring_responsibilities' in st.session_state:
               df_caring_responsibilities = st.session_state['df_caring_responsibilities']
+              group_dfs['Caring Responsibilities'] = df_caring_responsibilities
           else:
               st.error("Data for caring responsibilities not found. Please run the Data Preprocessing step first.")
 
         if 'Religion' in df.columns:
           if 'df_religious_beliefs' in st.session_state:
               df_religious_beliefs = st.session_state['df_religious_beliefs']
+              group_dfs['Religious Beliefs'] = df_religious_beliefs
           else:
               st.error("Data for df_religious_beliefs not found. Please run the Data Preprocessing step first.")
 
         if 'Ethnicity' in df.columns:
           if 'df_minority_ethnicity' in st.session_state:
               df_minority_ethnicity = st.session_state['df_minority_ethnicity']
+              group_dfs['Minority Ethnicity'] = df_minority_ethnicity
           else:
               st.error("Data for df_minority_ethnicity not found. Please run the Data Preprocessing step first.")
 
         if 'Gender' in df.columns:
           if 'df_women' in st.session_state:
               df_women = st.session_state['df_women']
+              group_dfs['Women'] = df_women
           else:
               st.error("Data for df_women not found. Please run the Data Preprocessing step first.")
 
         if 'Has_Disability' in df.columns:
           if 'df_disabilities' in st.session_state:
               df_disabilities = st.session_state['df_disabilities']
+              group_dfs['Disabilities'] = df_disabilities
           else:
               st.error("Data for df_disabilities not found. Please run the Data Preprocessing step first.")
 
         if 'LGBT' in df.columns:
           if 'df_LGBT' in st.session_state:
               df_LGBT = st.session_state['df_LGBT']
+              group_dfs['LGBT'] = df_LGBT
           else:
               st.error("Data for df_LGBT not found. Please run the Data Preprocessing step first.")
 
         if 'has_mental_health' in df.columns:
           if 'df_mental_health' in st.session_state:
               df_mental_health = st.session_state['df_mental_health']
+              group_dfs['Mental Health'] = df_mental_health
           else:
               st.error("Data for df_mental_health not found. Please run the Data Preprocessing step first.")
-
-
-
-        # Dictionary of groups and their corresponding dataframes
-        group_dfs = {
-            'All Employees': df,
-            'Women': df_women,
-            'Minority Ethnicity': df_minority_ethnicity,
-            'Disabilities': df_disabilities,
-            'LGBT': df_LGBT,
-            'Caring Responsibilities': df_caring_responsibilities,
-            'Religious Beliefs': df_religious_beliefs,
-            'Mental Health': df_mental_health
-        }
+    
+        # # Dictionary of groups and their corresponding dataframes
+        # group_dfs = {
+        #     'All Employees': df,
+        #     'Women': df_women,
+        #     'Minority Ethnicity': df_minority_ethnicity,
+        #     'Disabilities': df_disabilities,
+        #     'LGBT': df_LGBT,
+        #     'Caring Responsibilities': df_caring_responsibilities,
+        #     'Religious Beliefs': df_religious_beliefs,
+        #     'Mental Health': df_mental_health
+        # }
 
         # Response categories and updated colors
         response_categories = ['Strongly agree', 'Agree', 'Neither agree nor disagree', 'Disagree', 'Strongly disagree']
@@ -2507,42 +2533,45 @@ elif page == "Inclusion Analysis":
         filtered_question = {question for question in questions if question in df.columns}##########################The one in COLAB doesn't have this
         if all(item in df.columns for item in ['EDI_Priority_Senior_Leadership', 'EDI_Priority_Line_Manager', 'EDI_Priority_Peers', 'EDI_Priority_YourSelf']):
             filtered_question.add('In your opinion, how much of a priority is diversity and inclusion in the business to')
-            
+
         # Create the dropdown box
         selected_question = st.selectbox("Which question are you interested in?", filtered_question)
 
         ##############################################################################################
-        #                          Considering_Leaveing_in_Next_6_Months                             #
+        #                          Considering_Leaveing_in_Next_6_Months                             # 
         ##############################################################################################
-        if selected_question == "Considering Leave Due to Respect/Belonging in Next 6 Months":
+        if selected_question == "Considering_Leaveing_in_Next_6_Months":
             # Check for 'Considering Leave Due to Respect/Belonging in Next 6 Months' column before analysis
             leaving_counts = df['Considering_Leaveing_in_Next_6_Months'].value_counts(normalize=True) * 100
             fig = px.pie(values=leaving_counts.values, names=leaving_counts.index, title='Leaving the Company in the Next 6 Month')
             st.plotly_chart(fig)
             #----------------------------------------------------------------------------------------------------------------------
-            # Mapping selected_group to corresponding DataFrame################################################################## If there's before, remove it here##############
-            group_dfs = {
-                'all': df,
-                'women': df_women,
-                'minority': df_minority_ethnicity,
-                'disabilities': df_disabilities,
-                'lgbt': df_LGBT,
-                'carers': df_caring_responsibilities,
-                'religion': df_religious_beliefs,
-                'mental_health': df_mental_health
-            }
+            # # Mapping selected_group to corresponding DataFrame################################################################## If there's before, remove it here##############
+            # group_dfs = {
+            #     'all': df,
+            #     'women': df_women,
+            #     'minority': df_minority_ethnicity,
+            #     'disabilities': df_disabilities,
+            #     'lgbt': df_LGBT,
+            #     'carers': df_caring_responsibilities,
+            #     'religion': df_religious_beliefs,
+            #     'mental_health': df_mental_health
+            # }
+            
             # Function to calculate turnover costs
             def calculate_turnover_costs(days_to_fill_position, days_to_ramp_up, percent_salary_cost_to_find_talent):
                 # Dictionary to hold the results for each group
                 turnover_costs_by_group = {}
                 # Iterate over each group and perform calculations
                 for group_name, group_df in group_dfs.items():
+                    # Convert 'Average_Salary' to a numeric type (float) before computing the mean
+                    group_df['Average_Salary'] = pd.to_numeric(group_df['Average_Salary'], errors='coerce')
                     # Calculate the number of employees considering leaving (including 'Maybe')
-                    employees_leaving = group_df[(group_df['Considering_Leaveing_in_Next_6_Months'] == 'Yes') |
+                    employees_leaving = group_df[(group_df['Considering_Leaveing_in_Next_6_Months'] == 'Yes') | 
                                                 (group_df['Considering_Leaveing_in_Next_6_Months'] == 'Maybe')].shape[0]
 
                     # Calculate average salary for those considering leaving (including 'Maybe')
-                    average_salary_leaving = round(group_df[(group_df['Considering_Leaveing_in_Next_6_Months'] == 'Yes') |
+                    average_salary_leaving = round(group_df[(group_df['Considering_Leaveing_in_Next_6_Months'] == 'Yes') | 
                                                     (group_df['Considering_Leaveing_in_Next_6_Months'] == 'Maybe')]['Average_Salary'].mean())
 
                     # Calculate each component of turnover cost
@@ -2552,7 +2581,7 @@ elif page == "Inclusion Analysis":
 
                     # Total cost of turnover
                     total_turnover_cost = recruitment_cost + unfilled_role_opportunity_cost + ramp_up_time_opportunity_cost
-
+                    
                     # Add the results to the dictionary
                     turnover_costs_by_group[group_name] = {
                         'Cost of Attrition': total_turnover_cost,
@@ -2574,13 +2603,13 @@ elif page == "Inclusion Analysis":
 
                     # Total cost of turnover (Yes Only)
                     total_turnover_cost_yes = recruitment_cost_yes + unfilled_role_opportunity_cost_yes + ramp_up_time_opportunity_cost_yes
-
+                    
                     # Add the results to the dictionary (including Yes Only)
                     turnover_costs_by_group[group_name] = {
                         'Cost of Attrition (Yes & Maybe)': total_turnover_cost,
                         'Number of Potential Leavers (Yes & Maybe)': employees_leaving,
                         'Average Salary (Yes & Maybe)': average_salary_leaving,
-                        'Cost of Attrition (Yes Only)': total_turnover_cost_yes,
+                        'Cost of Attrition (Yes Only)': total_turnover_cost_yes,  
                         'Number of Potential Leavers (Yes Only)': employees_leaving_yes,
                         'Average Salary (Yes Only)': average_salary_leaving_yes
                     }
@@ -2618,17 +2647,17 @@ elif page == "Inclusion Analysis":
         #         In your opinion, how much of a priority is diversity and inclusion in the business to             #
         #############################################################################################################
         elif selected_question == "In your opinion, how much of a priority is diversity and inclusion in the business to": ######################change to 'if' if it's the first one
-            # Define the mapping for group dataframes
-            group_dfs = {
-                'All Employees': df,
-                'Women': df_women,
-                'Ethnic Minority': df_minority_ethnicity,
-                'Disabled': df_disabilities,
-                'LGBT': df_LGBT,
-                'Parents and Carers': df_caring_responsibilities,
-                'Religious Beliefs': df_religious_beliefs,
-                'Mental Health': df_mental_health
-            }
+            # # Define the mapping for group dataframes
+            # group_dfs = {
+            #     'All Employees': df,
+            #     'Women': df_women,
+            #     'Ethnic Minority': df_minority_ethnicity,
+            #     'Disabled': df_disabilities,
+            #     'LGBT': df_LGBT,
+            #     'Parents and Carers': df_caring_responsibilities,
+            #     'Religious Beliefs': df_religious_beliefs,
+            #     'Mental Health': df_mental_health
+            # }
 
             # Streamlit dropdown
             selected_group = st.selectbox(
@@ -2722,7 +2751,7 @@ elif page == "Inclusion Analysis":
                 yaxis_title='Percentage',
                 legend_title='Response Category'
             )
-
+                        
             # Show the figure
             st.plotly_chart(fig)
             pass
@@ -2755,7 +2784,7 @@ elif page == "Inclusion Analysis":
                 yaxis_title='Percentage',
                 legend_title='Response Category'
             )
-
+            
             # Show the figure
             st.plotly_chart(fig)
             pass
@@ -2788,7 +2817,7 @@ elif page == "Inclusion Analysis":
                 yaxis_title='Percentage',
                 legend_title='Response Category'
             )
-
+            
             # Show the figure
             st.plotly_chart(fig)
             pass
@@ -2822,7 +2851,7 @@ elif page == "Inclusion Analysis":
                 legend_title='Response Category'
             )
 
-
+            
             # Show the figure
             st.plotly_chart(fig)
             pass
@@ -2855,7 +2884,7 @@ elif page == "Inclusion Analysis":
                 yaxis_title='Percentage',
                 legend_title='Response Category'
             )
-
+            
             # Show the figure
             st.plotly_chart(fig)
             pass
@@ -2888,7 +2917,7 @@ elif page == "Inclusion Analysis":
                 yaxis_title='Percentage',
                 legend_title='Response Category'
             )
-
+                        
             # Show the figure
             st.plotly_chart(fig)
             pass
@@ -2921,7 +2950,7 @@ elif page == "Inclusion Analysis":
                 yaxis_title='Percentage',
                 legend_title='Response Category'
             )
-
+                        
             # Show the figure
             st.plotly_chart(fig)
             pass
@@ -2954,7 +2983,7 @@ elif page == "Inclusion Analysis":
                 yaxis_title='Percentage',
                 legend_title='Response Category'
             )
-
+            
             # Show the figure
             st.plotly_chart(fig)
             pass
@@ -2988,7 +3017,7 @@ elif page == "Inclusion Analysis":
                 legend_title='Response Category'
             )
 
-
+            
             # Show the figure
             st.plotly_chart(fig)
             pass
@@ -3021,7 +3050,7 @@ elif page == "Inclusion Analysis":
                 yaxis_title='Percentage',
                 legend_title='Response Category'
             )
-
+                        
             # Show the figure
             st.plotly_chart(fig)
             pass
@@ -3055,7 +3084,7 @@ elif page == "Inclusion Analysis":
                 legend_title='Response Category'
             )
 
-
+            
             # Show the figure
             st.plotly_chart(fig)
             pass
@@ -3088,7 +3117,7 @@ elif page == "Inclusion Analysis":
                 yaxis_title='Percentage',
                 legend_title='Response Category'
             )
-
+                        
             # Show the figure
             st.plotly_chart(fig)
             pass
@@ -3121,7 +3150,7 @@ elif page == "Inclusion Analysis":
                 yaxis_title='Percentage',
                 legend_title='Response Category'
             )
-
+                        
             # Show the figure
             st.plotly_chart(fig)
             pass
@@ -3154,7 +3183,7 @@ elif page == "Inclusion Analysis":
                 yaxis_title='Percentage',
                 legend_title='Response Category'
             )
-
+                        
             # Show the figure
             st.plotly_chart(fig)
             pass
@@ -3188,7 +3217,7 @@ elif page == "Inclusion Analysis":
                 legend_title='Response Category'
             )
 
-
+            
             # Show the figure
             st.plotly_chart(fig)
             pass
@@ -3222,7 +3251,7 @@ elif page == "Inclusion Analysis":
                 legend_title='Response Category'
             )
 
-
+            
             # Show the figure
             st.plotly_chart(fig)
             pass
@@ -3256,11 +3285,11 @@ elif page == "Inclusion Analysis":
                 legend_title='Response Category'
             )
 
-
+            
             # Show the figure
             st.plotly_chart(fig)
             pass
-
+        
         ########################################################################################
         #       Would you agree that you are able to reach your full potential at work?        #
         ########################################################################################
@@ -3291,7 +3320,7 @@ elif page == "Inclusion Analysis":
                 legend_title='Response Category'
             )
 
-
+            
             # Show the figure
             st.plotly_chart(fig)
             pass
@@ -3309,17 +3338,17 @@ elif page == "Inclusion Analysis":
                 'Ignored by Others': '#d62728'  # Darker red
             }
 
-            # Dictionary of groups and their corresponding dataframes
-            group_dfs = {
-                'All Employees': df,
-                'Women': df_women,
-                'Minority Ethnicity': df_minority_ethnicity,
-                'Disabilities': df_disabilities,
-                'LGBT': df_LGBT,
-                'Caring Responsibilities': df_caring_responsibilities,
-                'Religious Beliefs': df_religious_beliefs,
-                'Mental Health': df_mental_health
-            }
+            # # Dictionary of groups and their corresponding dataframes
+            # group_dfs = {
+            #     'All Employees': df,
+            #     'Women': df_women,
+            #     'Minority Ethnicity': df_minority_ethnicity,
+            #     'Disabilities': df_disabilities,
+            #     'LGBT': df_LGBT,
+            #     'Caring Responsibilities': df_caring_responsibilities,
+            #     'Religious Beliefs': df_religious_beliefs,
+            #     'Mental Health': df_mental_health
+            # }
 
 
             # Prepare data for Plotly
@@ -3347,7 +3376,7 @@ elif page == "Inclusion Analysis":
                 yaxis_title='Percentage',
                 legend_title='Response Category'
             )
-
+            
             # Show the figure
             st.plotly_chart(fig)
             pass
@@ -3369,7 +3398,7 @@ elif page == "Inclusion Analysis":
                 promoters_percentage = f'{((promoters / len(scores)) * 100).round(2)}% Promoters'
                 passives_percentage = f'{((passives / len(scores)) * 100).round(2)}% Passives'
                 detractors_percentage = f'{((detractors / len(scores)) * 100).round(2)}% Detractors'
-
+                
                 return nps, nps_formatted, promoters_percentage, passives_percentage, detractors_percentage
 
             # # Sample scores from DataFrame
@@ -3402,17 +3431,17 @@ elif page == "Inclusion Analysis":
             ))
             st.plotly_chart(fig)
 
-            # Calculating NPS for different groups
-            group_dfs = {
-                'All Employees': df,
-                'Women': df_women,
-                'Minority Ethnicity': df_minority_ethnicity,
-                'Disabilities': df_disabilities,
-                'LGBT+': df_LGBT,
-                'Caring Responsibilities': df_caring_responsibilities,
-                'Religious Beliefs': df_religious_beliefs,
-                'Mental Health': df_mental_health
-            }
+            # # Calculating NPS for different groups
+            # group_dfs = {
+            #     'All Employees': df,
+            #     'Women': df_women,
+            #     'Minority Ethnicity': df_minority_ethnicity,
+            #     'Disabilities': df_disabilities,
+            #     'LGBT+': df_LGBT,
+            #     'Caring Responsibilities': df_caring_responsibilities,
+            #     'Religious Beliefs': df_religious_beliefs,
+            #     'Mental Health': df_mental_health
+            # }
 
             # Column name for scores
             column_name = 'How likely is it that you would recommend this business as an inclusive place to work to a friend or colleague?'
@@ -3425,25 +3454,6 @@ elif page == "Inclusion Analysis":
             st.dataframe(nps_table)
 
             pass
-        ######################################################################
-        #                              Religion                              #
-        ######################################################################
-        if selected_question == "Question 1: <Your question here>":
-
-
-            # Show the figure
-            st.plotly_chart(fig)
-            pass
-        ######################################################################
-        #                              Religion                              #
-        ######################################################################
-        if selected_question == "Question 1: <Your question here>":
-
-
-            # Show the figure
-            st.plotly_chart(fig)
-            pass
-
 
 
 
