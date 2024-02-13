@@ -785,7 +785,8 @@ if page == "Questions":
     if st.checkbox('Tick this box if you have already processed this dataset.'):
         if 'df' in st.session_state:  # Check if the main DataFrame is in session state
                 df = st.session_state['df']  # Retrieve the main DataFrame from session state
-                if df.columns.tolist() in rename_columns.values():
+                # if df.columns.tolist() in rename_columns.values():
+                if all(col in rename_columns.values() for col in df.columns):
 
                     #******************************** New created sub dataframes *************************************#
                     # Define the columns related to mental health
