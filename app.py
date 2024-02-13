@@ -3492,9 +3492,9 @@ elif page == "Text Analysis":
                     'What ONE thing do you think the business should be doing to recruit a diverse range of employees?',
                     'What ONE thing do you think the business does well in terms of creating a diverse and inclusive workplace?',
                     'What ONE thing do you think the business should be doing to create a work environment where everyone is respected and can thrive regardless of personal circumstances or background?',
-                    'In what ways can this organisation ensure that everyone is treated fairly and can thrive?', ## Is it the same as above question??? 
+                    'In what ways can this organisation ensure that everyone is treated fairly and can thrive?', ## Is it the same as above question???
                     'We want to support employees in setting up networks for our people if there is demand. What ERG would you be interested in us establishing?']
-        
+
     # Check if any of the specified text columns are present in the DataFrame
     if not any(col in df.columns for col in text_columns):
         st.write("There's no text data to be analysed.")
@@ -3509,21 +3509,21 @@ elif page == "Text Analysis":
             Q = Q.reset_index(drop=True)
             Q[column_name] = Q[column_name].str.lower().apply(lambda x: re.sub(r'\W+', ' ', x))
             return Q[column_name]
-    
+
         def perform_topic_modeling(abstracts):
             embeddings = embedding_model.encode(abstracts, show_progress_bar=True)
             topics, probs = topic_model.fit_transform(abstracts, embeddings)
             return topic_model.get_topic_info()
-    
-    
-    
+
+
+
         # Function to convert a DataFrame to a CSV download link
         def convert_df_to_csv_download_link(df, filename):
             csv = df.to_csv(index=False)
             b64 = base64.b64encode(csv.encode()).decode()
             href = f'<a href="data:file/csv;base64,{b64}" download="{filename}" target="_blank">Download {filename}</a>'
             return href
-    
+
         # Function to display topics and their representative documents
         def display_topics_and_docs(df, question):
             st.subheader(f"{question}")
@@ -3535,34 +3535,34 @@ elif page == "Text Analysis":
                 st.markdown("Examples:")
                 st.write(representative_docs)
                 st.markdown("Key Insights in this cluster:")
-    
+
                 # Use regex to find bullet points
                 bullet_points = re.split(r'\n*[-*]\s|\n*\d+\.\s|\n+', summary)
                 for point in bullet_points:
                     point = point.strip()  # Remove leading/trailing whitespace
                     if point:  # Check if the point is not empty
                         st.markdown(f"- {point}")
-    
+
         # Save results to CSV
         def get_key_for_value(my_dict, value_to_find):
           for key, value in my_dict.items():
               if value == value_to_find:
                   return key
           return None
-    
-    
-    
+
+
+
         # # Check if data is loaded
         # if 'df' in st.session_state and st.session_state['df'] is not None:
         #   df = st.session_state['df']
-    
-         # Initialize a dictionary in session state for storing analysis results if it doesn't exist
-         if 'analysis_results' not in st.session_state:
-              st.session_state['analysis_results'] = {}
-    
-    
-    
-    
+
+        # Initialize a dictionary in session state for storing analysis results if it doesn't exist
+        if 'analysis_results' not in st.session_state:
+           st.session_state['analysis_results'] = {}
+
+
+
+
           # Mapping of question names to column names
           #questions = {
               #"Recruiting Diverse Employees": "What ONE thing do you think the business should be doing to recruit a diverse range of employees?",
@@ -3572,256 +3572,255 @@ elif page == "Text Analysis":
           #}
           # User selects a question
           #selected_question = st.selectbox("Select a Question", list(questions.values()))
-    
-          questions = {
+
+        questions = {
               "Recruiting Diverse Employees": "What ONE thing do you think the business should be doing to recruit a diverse range of employees?",
               "Creating a Diverse Workplace": "What ONE thing do you think the business does well in terms of creating a diverse and inclusive workplace?",
               "Respectful Work Environment": "What ONE thing do you think the business should be doing to create a work environment where everyone is respected and can thrive regardless of personal circumstances or background?",
-    
+
               "Fairly Treated Work Environment": "In what ways can this organisation ensure that everyone is treated fairly and can thrive?",
               "REG Interest Establishing": "We want to support employees in setting up networks for our people if there is demand. What ERG would you be interested in us establishing?",
-    
+
               "Comments on D&I": "What other comments would you like to make in relation to D&I at this organisation?"
-          }
+              }
 
 
 
 
-          # Filter the values to only include those that are present in df.columns
-          available_questions = [q for q in questions.values() if q in df.columns]
-          options = ['Select...'] + available_questions
+        # Filter the values to only include those that are present in df.columns
+        available_questions = [q for q in questions.values() if q in df.columns]
+        options = ['Select...'] + available_questions
 
-          # User selects a question from the available options with 'Select...' as the default
-          selected_question = st.selectbox("Select a Question", options, index=0)
+        # User selects a question from the available options with 'Select...' as the default
+        selected_question = st.selectbox("Select a Question", options, index=0)
 
-          if selected_question != 'Select...':
+        if selected_question != 'Select...':
 
 
 
-          
-    
-          # # Filter the values to only include those that are present in df.columns
-          # available_questions = [q for q in questions.values() if q in df.columns]
-    
-          # # User selects a question from the available options
-          # selected_question = st.selectbox("Select a Question", available_questions)
-    
-    
-              # Check if selected question's analysis is already stored
-              if selected_question in st.session_state['analysis_results']:
-                  # Retrieve and display the stored analysis results
-                  topic_info = st.session_state['analysis_results'][selected_question]
-                  display_topics_and_docs(topic_info, selected_question)
-        
-        
-              else:
-        
-        
-                  # Process text data for the selected question
-                  # abstracts = process_text_data(df, questions[selected_question])
-                  abstracts = process_text_data(df, selected_question)
-        
-                  ##########################################################################################
-                  #                                   Topic Modeling                                       #
-                  ##########################################################################################
-                  model_id = 'meta-llama/Llama-2-13b-chat-hf'
-                  #-------------------------------------------
-                  # Logging to hugging face
-                  login("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")
-                  #----------------------------------------------
-                  # set quantization configuration to load large model with less GPU memory
-                  # this requires the `bitsandbytes` library
-        
-                  #bnb_config = transformers.BitsAndBytesConfig(
-                    #  load_in_4bit=True,  # 4-bit quantization
-                    #  bnb_4bit_quant_type='nf4',  # Normalized float 4
-                    #  bnb_4bit_use_double_quant=True,  # Second quantization after the first
-                    #  bnb_4bit_compute_dtype=bfloat16  # Computation type
-                # )
-        
-                  bnb_config = transformers.BitsAndBytesConfig(
-                  load_in_4bit=True,  # 4-bit quantization
-                  bnb_4bit_quant_type='nf4',  # Normalized float 4
-                  bnb_4bit_use_double_quant=True,  # Second quantization after the first
-                  bnb_4bit_compute_dtype=torch.bfloat16,  # Computation type
-                  load_in_8bit_fp32_cpu_offload=True  # Enable offloading to CPU
-                  )
-                  #---------------------------------------------------------------------------------
-                  # Llama 2 Tokenizer
-                  tokenizer = transformers.AutoTokenizer.from_pretrained(model_id)##
-        
-                  # Llama 2 Model
-                  model = transformers.AutoModelForCausalLM.from_pretrained(
-                      model_id,
-                      trust_remote_code=True,
-                      quantization_config=bnb_config,
-                      device_map='auto',
-                  )
-                  model.eval()
-                  #------------------------------------------------------------------------------
-                  # Our text generator
-                  generator = transformers.pipeline(
-                      model=model, tokenizer=tokenizer,
-                      task='text-generation',
-                      temperature=0.1,
-                      # max_new_tokens=500,
-                      max_new_tokens=300,
-                      repetition_penalty=1.1
-                  )
-                  #---------------------------------------------------------------------------
-                  # System prompt describes information given to all conversations
-                  system_prompt = """
-                  <s>[INST] <<SYS>>
-                  You are a helpful, respectful and honest assistant for labeling topics.
-                  <</SYS>>
-                  """
-        
-                  # Example prompt demonstrating the output we are looking for
-                  example_prompt = """
-                  I have a topic that contains the following documents:
-                  - Traditional diets in most cultures were primarily plant-based with a little meat on top, but with the rise of industrial style meat production and factory farming, meat has become a staple food.
-                  - Meat, but especially beef, is the word food in terms of emissions.
-                  - Eating meat doesn't make you a bad person, not eating meat doesn't make you a good one.
-        
-                  The topic is described by the following keywords: 'meat, beef, eat, eating, emissions, steak, food, health, processed, chicken'.
-        
-                  Based on the information about the topic above, please create a short label of this topic. Make sure you to only return the label and nothing more.
-        
-                  [/INST] Environmental impacts of eating meat
-                  """
-        
-                  # Our main prompt with documents ([DOCUMENTS]) and keywords ([KEYWORDS]) tags
-                  main_prompt = """
-                  [INST]
-                  I have a topic that contains the following documents:
-                  [DOCUMENTS]
-        
-                  The topic is described by the following keywords: '[KEYWORDS]'.
-        
-                  Based on the information about the topic above, please create a short label of this topic. Make sure you to only return the label and nothing more.
-                  [/INST]
-                  """
-        
-                  prompt = system_prompt + example_prompt + main_prompt
-                  #--------------------------------------------------------------------------------------------
-                  # Pre-calculate embeddings
-                  embedding_model = SentenceTransformer("BAAI/bge-small-en")
-                  #----------------------------------------------------------------------------------------------
-                  umap_model = UMAP(n_neighbors=2, n_components=2, min_dist=0.0, metric='cosine', random_state=42)
-                  hdbscan_model = HDBSCAN(min_cluster_size=5, metric='euclidean', cluster_selection_method='eom', prediction_data=True)
-                  #----------------------------------------------------------------------------------------------------------------------
-        
-                  # Text generation with Llama 2
-                  llama2 = TextGeneration(generator, prompt=prompt)
-        
-                  # All representation models
-                  representation_model = {
-                      # "KeyBERT": keybert,
-                      "Llama2": llama2,
-                      # "MMR": mmr,
-                  }
-                  #-----------------------------------------------------------------------------------
-                  topic_model = BERTopic(
-        
-                    # Sub-models
-                    embedding_model=embedding_model,
-                    umap_model=umap_model,
-                    hdbscan_model=hdbscan_model,
-                    representation_model=representation_model,
-        
-                    # Hyperparameters
-                    top_n_words=5,
-                    verbose=True
-                  )
-        
-                  # Perform topic modeling
-                  topic_info = perform_topic_modeling(abstracts)
-        
-                  ##########################################################################################
-                  #                                 Text Summarization                                     #
-                  ##########################################################################################
-                  model = "meta-llama/Llama-2-7b-chat-hf"
-        
-                  torch.cuda.empty_cache()
-        
-                  #-------------------------------------------
-                  # Logging to hugging face
-                  login("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")
-                  #----------------------------------------------
-        
-        
-                  tokenizer = AutoTokenizer.from_pretrained(model)
-        
-                  pipeline = transformers.pipeline(
-                      "text-generation", #task
-                      model=model,
-                      tokenizer=tokenizer,
-                      torch_dtype=torch.bfloat16,
-                      trust_remote_code=True,
-                      device_map="auto",
-                      max_length=1000,
-                      do_sample=True,
-                      top_k=10,
-                      num_return_sequences=1,
-                      eos_token_id=tokenizer.eos_token_id
-                  )
-        
-                  llm = HuggingFacePipeline(pipeline = pipeline, model_kwargs = {'temperature':0})
-        
-                  template = """
-                                Write a concise summary of the following text delimited by triple backquotes.
-                                Return your response in bullet points which covers the key points of the text.
-                                ```{text}```
-                                BULLET POINT SUMMARY:
-                            """
-        
-                  prompt = PromptTemplate(template=template, input_variables=["text"])
-        
-                  llm_chain = LLMChain(prompt=prompt, llm=llm)
-        
-        
-                  def summarize_text(text):
-                    return llm_chain.run(text)
-        
-        
-        
-        
-                  # Perform text summarization
-                  topic_info['Summary'] = topic_info['Representative_Docs'].apply(summarize_text)
-        
-        
-        
-        
-                  # Store the new analysis results in the session state
-                  st.session_state['analysis_results'][selected_question] = topic_info
-        
-        
-        
-        
-        
-        
-        
-        
-        
-                  # Display topic info and topics with representative documents
-                  #st.subheader("Text Analysis Results")
-                  # display_topics_and_docs(topic_info, questions[selected_question])
-                  display_topics_and_docs(topic_info, selected_question)
-        
-                  # Save results to CSV
-                  # def get_key_for_value(my_dict, value_to_find):
-                    # for key, value in my_dict.items():
-                        # if value == value_to_find:
-                            # return key
-                    # return None
-                  question = get_key_for_value(questions, selected_question)
-        
-                  csv_filename = f"{question.replace(' ', '_').lower()}_summarized.csv"
-                  topic_info.to_csv(csv_filename, encoding='utf-8', index=False)
-        
-                  # Download button for the file
-                  st.markdown(convert_df_to_csv_download_link(topic_info, csv_filename), unsafe_allow_html=True)
+
+
+        # # Filter the values to only include those that are present in df.columns
+        # available_questions = [q for q in questions.values() if q in df.columns]
+
+        # # User selects a question from the available options
+        # selected_question = st.selectbox("Select a Question", available_questions)
+
+
+            # Check if selected question's analysis is already stored
+            if selected_question in st.session_state['analysis_results']:
+                # Retrieve and display the stored analysis results
+                topic_info = st.session_state['analysis_results'][selected_question]
+                display_topics_and_docs(topic_info, selected_question)
+
+
+            else:
+
+
+                # Process text data for the selected question
+                # abstracts = process_text_data(df, questions[selected_question])
+                abstracts = process_text_data(df, selected_question)
+
+                ##########################################################################################
+                #                                   Topic Modeling                                       #
+                ##########################################################################################
+                model_id = 'meta-llama/Llama-2-13b-chat-hf'
+                #-------------------------------------------
+                # Logging to hugging face
+                login("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")
+                #----------------------------------------------
+                # set quantization configuration to load large model with less GPU memory
+                # this requires the `bitsandbytes` library
+
+                #bnb_config = transformers.BitsAndBytesConfig(
+                  #  load_in_4bit=True,  # 4-bit quantization
+                  #  bnb_4bit_quant_type='nf4',  # Normalized float 4
+                  #  bnb_4bit_use_double_quant=True,  # Second quantization after the first
+                  #  bnb_4bit_compute_dtype=bfloat16  # Computation type
+              # )
+
+                bnb_config = transformers.BitsAndBytesConfig(
+                load_in_4bit=True,  # 4-bit quantization
+                bnb_4bit_quant_type='nf4',  # Normalized float 4
+                bnb_4bit_use_double_quant=True,  # Second quantization after the first
+                bnb_4bit_compute_dtype=torch.bfloat16,  # Computation type
+                load_in_8bit_fp32_cpu_offload=True  # Enable offloading to CPU
+                )
+                #---------------------------------------------------------------------------------
+                # Llama 2 Tokenizer
+                tokenizer = transformers.AutoTokenizer.from_pretrained(model_id)##
+
+                # Llama 2 Model
+                model = transformers.AutoModelForCausalLM.from_pretrained(
+                    model_id,
+                    trust_remote_code=True,
+                    quantization_config=bnb_config,
+                    device_map='auto',
+                )
+                model.eval()
+                #------------------------------------------------------------------------------
+                # Our text generator
+                generator = transformers.pipeline(
+                    model=model, tokenizer=tokenizer,
+                    task='text-generation',
+                    temperature=0.1,
+                    # max_new_tokens=500,
+                    max_new_tokens=300,
+                    repetition_penalty=1.1
+                )
+                #---------------------------------------------------------------------------
+                # System prompt describes information given to all conversations
+                system_prompt = """
+                <s>[INST] <<SYS>>
+                You are a helpful, respectful and honest assistant for labeling topics.
+                <</SYS>>
+                """
+
+                # Example prompt demonstrating the output we are looking for
+                example_prompt = """
+                I have a topic that contains the following documents:
+                - Traditional diets in most cultures were primarily plant-based with a little meat on top, but with the rise of industrial style meat production and factory farming, meat has become a staple food.
+                - Meat, but especially beef, is the word food in terms of emissions.
+                - Eating meat doesn't make you a bad person, not eating meat doesn't make you a good one.
+
+                The topic is described by the following keywords: 'meat, beef, eat, eating, emissions, steak, food, health, processed, chicken'.
+
+                Based on the information about the topic above, please create a short label of this topic. Make sure you to only return the label and nothing more.
+
+                [/INST] Environmental impacts of eating meat
+                """
+
+                # Our main prompt with documents ([DOCUMENTS]) and keywords ([KEYWORDS]) tags
+                main_prompt = """
+                [INST]
+                I have a topic that contains the following documents:
+                [DOCUMENTS]
+
+                The topic is described by the following keywords: '[KEYWORDS]'.
+
+                Based on the information about the topic above, please create a short label of this topic. Make sure you to only return the label and nothing more.
+                [/INST]
+                """
+
+                prompt = system_prompt + example_prompt + main_prompt
+                #--------------------------------------------------------------------------------------------
+                # Pre-calculate embeddings
+                embedding_model = SentenceTransformer("BAAI/bge-small-en")
+                #----------------------------------------------------------------------------------------------
+                umap_model = UMAP(n_neighbors=2, n_components=2, min_dist=0.0, metric='cosine', random_state=42)
+                hdbscan_model = HDBSCAN(min_cluster_size=5, metric='euclidean', cluster_selection_method='eom', prediction_data=True)
+                #----------------------------------------------------------------------------------------------------------------------
+
+                # Text generation with Llama 2
+                llama2 = TextGeneration(generator, prompt=prompt)
+
+                # All representation models
+                representation_model = {
+                    # "KeyBERT": keybert,
+                    "Llama2": llama2,
+                    # "MMR": mmr,
+                }
+                #-----------------------------------------------------------------------------------
+                topic_model = BERTopic(
+
+                  # Sub-models
+                  embedding_model=embedding_model,
+                  umap_model=umap_model,
+                  hdbscan_model=hdbscan_model,
+                  representation_model=representation_model,
+
+                  # Hyperparameters
+                  top_n_words=5,
+                  verbose=True
+                )
+
+                # Perform topic modeling
+                topic_info = perform_topic_modeling(abstracts)
+
+                ##########################################################################################
+                #                                 Text Summarization                                     #
+                ##########################################################################################
+                model = "meta-llama/Llama-2-7b-chat-hf"
+
+                torch.cuda.empty_cache()
+
+                #-------------------------------------------
+                # Logging to hugging face
+                login("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")
+                #----------------------------------------------
+
+
+                tokenizer = AutoTokenizer.from_pretrained(model)
+
+                pipeline = transformers.pipeline(
+                    "text-generation", #task
+                    model=model,
+                    tokenizer=tokenizer,
+                    torch_dtype=torch.bfloat16,
+                    trust_remote_code=True,
+                    device_map="auto",
+                    max_length=1000,
+                    do_sample=True,
+                    top_k=10,
+                    num_return_sequences=1,
+                    eos_token_id=tokenizer.eos_token_id
+                )
+
+                llm = HuggingFacePipeline(pipeline = pipeline, model_kwargs = {'temperature':0})
+
+                template = """
+                              Write a concise summary of the following text delimited by triple backquotes.
+                              Return your response in bullet points which covers the key points of the text.
+                              ```{text}```
+                              BULLET POINT SUMMARY:
+                          """
+
+                prompt = PromptTemplate(template=template, input_variables=["text"])
+
+                llm_chain = LLMChain(prompt=prompt, llm=llm)
+
+
+                def summarize_text(text):
+                  return llm_chain.run(text)
+
+
+
+
+                # Perform text summarization
+                topic_info['Summary'] = topic_info['Representative_Docs'].apply(summarize_text)
+
+
+
+
+                # Store the new analysis results in the session state
+                st.session_state['analysis_results'][selected_question] = topic_info
+
+
+
+
+
+
+
+
+
+                # Display topic info and topics with representative documents
+                #st.subheader("Text Analysis Results")
+                # display_topics_and_docs(topic_info, questions[selected_question])
+                display_topics_and_docs(topic_info, selected_question)
+
+                # Save results to CSV
+                # def get_key_for_value(my_dict, value_to_find):
+                  # for key, value in my_dict.items():
+                      # if value == value_to_find:
+                          # return key
+                  # return None
+                question = get_key_for_value(questions, selected_question)
+
+                csv_filename = f"{question.replace(' ', '_').lower()}_summarized.csv"
+                topic_info.to_csv(csv_filename, encoding='utf-8', index=False)
+
+                # Download button for the file
+                st.markdown(convert_df_to_csv_download_link(topic_info, csv_filename), unsafe_allow_html=True)
 
 else:
   st.write("Please upload and preprocess the data in the 'Data Preprocessing' page first.")
-
