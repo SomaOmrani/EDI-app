@@ -812,7 +812,7 @@ if page == "Questions":
                 # else:
                 #     df_drop_Avaerage_Salary = df
                 df_drop_Avaerage_Salary = df[df.columns.intersection(rename_columns.values())]
-                if not df_drop_Avaerage_Salary.columns.tolist() and all(col in rename_columns.values() for col in df_drop_Avaerage_Salary.columns):
+                if df_drop_Avaerage_Salary.columns.tolist()!=[] and all(col in rename_columns.values() for col in df_drop_Avaerage_Salary.columns):
 
                     #******************************** New created sub dataframes *************************************#
                     # Define the columns related to mental health
