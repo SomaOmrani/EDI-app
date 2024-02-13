@@ -889,7 +889,8 @@ if page == "Questions":
 elif page == "Demographic Analysis":
 # if page == "Demographic Analysis":
     st.header("Demographic Analysis")
-
+    st.subheader("Please select the desired analysis from the sidebar on the right.")
+    
     # Ensure the data is loaded
     if 'df' in st.session_state and st.session_state['df'] is not None:
         df = st.session_state['df']
@@ -2386,6 +2387,8 @@ elif page == "Social Mobility Analysis":
 
 elif page == "Inclusion Analysis":
     st.header("Inclusion Analysis")
+    st.subheader("Please select the desired analysis from the the dropdown box.")
+    
     # Ensure the data is loaded
     if 'df' in st.session_state and st.session_state['df'] is not None:
         df = st.session_state['df']
