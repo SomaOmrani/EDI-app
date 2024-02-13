@@ -812,7 +812,7 @@ if page == "Questions":
                 # else:
                 #     df_drop_Avaerage_Salary = df
                 df_drop_Avaerage_Salary = df[df.columns.intersection(rename_columns.values())]
-                if all(col in rename_columns.values() for col in df_drop_Avaerage_Salary.columns):
+                if not df_drop_Avaerage_Salary.columns.tolist() and all(col in rename_columns.values() for col in df_drop_Avaerage_Salary.columns):
 
                     #******************************** New created sub dataframes *************************************#
                     # Define the columns related to mental health
@@ -3556,8 +3556,8 @@ elif page == "Text Analysis":
         # if 'df' in st.session_state and st.session_state['df'] is not None:
         #   df = st.session_state['df']
     
-          # Initialize a dictionary in session state for storing analysis results if it doesn't exist
-          if 'analysis_results' not in st.session_state:
+         # Initialize a dictionary in session state for storing analysis results if it doesn't exist
+         if 'analysis_results' not in st.session_state:
               st.session_state['analysis_results'] = {}
     
     
