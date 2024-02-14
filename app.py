@@ -597,7 +597,7 @@ if page == "Questions":
                     # Assuming the second column is named 'Salary_Range' and is formatted like '£30,000-£40,000'
                     # Create a new column 'Average_Salary' by splitting the 'Salary_Range', converting to integers, and taking the average
                     # Define a function to handle salary range conversion and averaging
-
+                    df['Salary'] = df['Salary'].astype('category')
                     def average_salary(salary_range):
                         if 'prefer not to say' in salary_range.lower():
                             return 0
