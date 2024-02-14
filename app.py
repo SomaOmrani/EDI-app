@@ -570,11 +570,11 @@ if page == "Questions":
                         if col in df.columns:
                             df[col].fillna('No response', inplace=True)
 
-                    string_columns = []
-                    for item in columns_to_fillna:
-                        if item in df.columns:
-                            string_columns.append(item)
-                    df[string_columns] = df[string_columns].astype(str)
+                    # string_columns = []
+                    # for item in columns_to_fillna:
+                    #     if item in df.columns:
+                    #         string_columns.append(item)
+                    # df[string_columns] = df[string_columns].astype(str)
                     # # Apply the anonymization functions to string columns
                     # df[string_columns] = df[string_columns].applymap(anonymize_text)
                     # df[string_columns] = df[string_columns].applymap(replace_named_entities)
