@@ -575,9 +575,9 @@ if page == "Questions":
                         if item in df.columns:
                             string_columns.append(item)
                     df[string_columns] = df[string_columns].astype(str)
-                    # Apply the anonymization functions to string columns
-                    df[string_columns] = df[string_columns].applymap(anonymize_text)
-                    df[string_columns] = df[string_columns].applymap(replace_named_entities)
+                    # # Apply the anonymization functions to string columns
+                    # df[string_columns] = df[string_columns].applymap(anonymize_text)
+                    # df[string_columns] = df[string_columns].applymap(replace_named_entities)
                                      
 
                 # For simplicity, let's assume that columns with less than 20 unique values can be treated as categorical
