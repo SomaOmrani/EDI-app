@@ -479,7 +479,7 @@ if page == "Questions":
                         new_column_names[idx] = f"{previous_question}: {df.iloc[0, idx]}"
 
                 
-                if "Unnamed"  in df.columns:
+                if any('Unnamed' in column for column in df.columns):
                 # Drop the first two rows that were used to identify the column names
                     df = df.drop(df.index[0:2]).reset_index(drop=True)
 
@@ -1397,6 +1397,7 @@ elif page == "Demographic Analysis":
                 st.plotly_chart(fig)
                 #---------------------------------------------------------------------------------------------------
                 if 'Self_Describe_Gender' in df.columns:
+                    df['Self_Describe_Gender'] = df['Self_Describe_Gender'].str.lower()
                     # Filter out NaN values and entries with '-'
                     filtered_descriptions = df['Self_Describe_Gender'][~df['Self_Describe_Gender'].isin([np.nan, '-', ''])]
 
@@ -1703,6 +1704,7 @@ elif page == "Demographic Analysis":
                     st.plotly_chart(fig)
                     #---------------------------------------------------------------------------------------------------
                     if 'National_Identity__Not_in_List' in df.columns:
+                        df['National_Identity__Not_in_List'] = df['National_Identity__Not_in_List'].str.lower()
                         # Filter out NaN values and entries with '-'
                         filtered_descriptions = df['National_Identity__Not_in_List'][~df['National_Identity__Not_in_List'].isin([np.nan, '-', ''])]
 
@@ -1741,6 +1743,7 @@ elif page == "Demographic Analysis":
                 st.plotly_chart(fig)
                 #-----------------------------------------------------------------------------------------------------------
                 if 'Ethnicity_Not_in_List' in df.columns:
+                    df['Ethnicity_Not_in_List'] = df['Ethnicity_Not_in_List'].str.lower()
                     # Filter out NaN values and entries with '-'
                     filtered_descriptions = df['Ethnicity_Not_in_List'][~df['Ethnicity_Not_in_List'].isin([np.nan, '-', ''])]
 
@@ -1767,6 +1770,7 @@ elif page == "Demographic Analysis":
                 st.plotly_chart(fig)
                 #-------------------------------------------------------------------------------------------
                 if 'Self_Describe_Sexual_Orientation' in df.columns:
+                    df['Self_Describe_Sexual_Orientation'] = df['Self_Describe_Sexual_Orientation'].str.lower()
                     # Filter out NaN values and entries with '-'
                     filtered_descriptions = df['Self_Describe_Sexual_Orientation'][~df['Self_Describe_Sexual_Orientation'].isin([np.nan, '-', ''])]
 
@@ -1900,6 +1904,7 @@ elif page == "Demographic Analysis":
                 st.plotly_chart(fig)
                 #-------------------------------------------------------------------------------------------
                 if 'Religion_Not_in_List' in df.columns:
+                    df['Religion_Not_in_List'] = df['Religion_Not_in_List'].str.lower()
                     # Filter out NaN values and entries with '-'
                     filtered_descriptions = df['Religion_Not_in_List'][~df['Religion_Not_in_List'].isin([np.nan, '-', ''])]
 
